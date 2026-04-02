@@ -67,7 +67,7 @@ function buildMain() {
     '  }',
     '',
     '  var panel = createPanel();',
-    '  var contentArea = panel.content || panel;',
+    '  var contentArea = panel.contentArea || panel.content || panel;',
     '  var currentTable = null;',
     '  var replInstance = null;',
     '',
