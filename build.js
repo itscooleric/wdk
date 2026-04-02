@@ -30,7 +30,11 @@ var SOURCE_FILES = [
   'ui/panel.js',
   'ui/table.js',
   'ui/file-import.js',
-  'ui/repl.js'
+  'ui/repl.js',
+  'inspect/dom-scraper.js',
+  'inspect/network-interceptor.js',
+  'inspect/storage-viewer.js',
+  'inspect/console-capture.js'
 ];
 
 // --- Read and clean source files ---
