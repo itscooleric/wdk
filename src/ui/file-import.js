@@ -5,7 +5,7 @@
  * Zero external dependencies.
  */
 
-/* global parseCSV, parseJSON, DataTable */
+/* global parseCSV, parseJSON, parseXLSX, DataTable */
 
 var DK_IMPORT_THEME = {
   bg: '#0a0a1a',
@@ -83,6 +83,7 @@ function detectFileType(filename) {
   if (ext === 'csv') return 'csv';
   if (ext === 'tsv') return 'tsv';
   if (ext === 'json') return 'json';
+  if (ext === 'xlsx') return 'xlsx';
   return null;
 }
 
@@ -145,7 +146,7 @@ function createFileImport(container, onData) {
 
   var hint = document.createElement('div');
   hint.className = 'dk-import-hint';
-  hint.textContent = '.csv \u00b7 .tsv \u00b7 .json';
+  hint.textContent = '.csv \u00b7 .tsv \u00b7 .json \u00b7 .xlsx';
 
   var btn = document.createElement('button');
   btn.className = 'dk-import-btn';
@@ -154,7 +155,7 @@ function createFileImport(container, onData) {
   var fileInput = document.createElement('input');
   fileInput.className = 'dk-import-input';
   fileInput.type = 'file';
-  fileInput.accept = '.csv,.tsv,.json';
+  fileInput.accept = '.csv,.tsv,.json,.xlsx';
 
   var errorDiv = document.createElement('div');
   errorDiv.className = 'dk-import-error';
@@ -182,7 +183,28 @@ function createFileImport(container, onData) {
     clearError();
     var type = detectFileType(file.name);
     if (!type) {
-      showError('Unsupported file type. Use .csv, .tsv, or .json');
+      showError('Unsupported file type. Use .csv, .tsv, .json, or .xlsx');
+      return;
+    }
+
+    if (type === 'xlsx') {
+      var binReader = new FileReader();
+      binReader.onload = function () {
+        if (typeof parseXLSX !== 'function') {
+          showError('XLSX parser not available in this build');
+          return;
+        }
+        parseXLSX(binReader.result).then(function (result) {
+          var dt = new DataTable(result.headers, result.rows);
+          onData(dt, file.name);
+        }).catch(function (err) {
+          showError('XLSX parse error: ' + err.message);
+        });
+      };
+      binReader.onerror = function () {
+        showError('Failed to read file: ' + file.name);
+      };
+      binReader.readAsArrayBuffer(file);
       return;
     }
 
