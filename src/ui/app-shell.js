@@ -5,7 +5,7 @@
  * Synthwave 84 dark theme. Zero external dependencies.
  */
 
-/* global createPanel, createFileImport, renderTable, createREPL, createPivotPanel, createNotebook, aggregate, pivot, execSQL, toCSV, toJSON, downloadBlob */
+/* global createPanel, createFileImport, renderTable, createREPL, createPivotPanel, createNotebook, createBuildConfig, aggregate, pivot, execSQL, toCSV, toJSON, downloadBlob */
 
 var DK_SHELL_THEME = {
   bg: '#0a0a1a',
@@ -407,10 +407,14 @@ function createAppShell() {
   notebookPane.id = 'dk-shell-notebook-pane';
   notebookPane.style.cssText = 'flex:1;overflow:hidden;display:none;flex-direction:column;';
 
+  var buildPane = document.createElement('div');
+  buildPane.id = 'dk-shell-build-pane';
+  buildPane.style.cssText = 'flex:1;overflow:hidden;display:none;flex-direction:column;';
+
   // Bottom panel tab bar
   var bottomTabBar = document.createElement('div');
   bottomTabBar.style.cssText = 'display:flex;gap:0;background:#0a0a1a;border-bottom:1px solid ' + DK_SHELL_THEME.border + ';flex-shrink:0;';
-  var bottomPanes = { repl: replPane, pivot: pivotPane, notebook: notebookPane };
+  var bottomPanes = { repl: replPane, pivot: pivotPane, notebook: notebookPane, build: buildPane };
   function makeBottomTab(label, target) {
     var btn = document.createElement('button');
     btn.textContent = label;
@@ -431,9 +435,11 @@ function createAppShell() {
   var notebookTab = makeBottomTab('Notebook', 'notebook');
   replTab.style.color = DK_SHELL_THEME.cyan;
   replTab.style.borderBottomColor = DK_SHELL_THEME.cyan;
+  var buildTab = makeBottomTab('Build', 'build');
   bottomTabBar.appendChild(replTab);
   bottomTabBar.appendChild(pivotTab);
   bottomTabBar.appendChild(notebookTab);
+  bottomTabBar.appendChild(buildTab);
 
   // Bottom panel container
   var bottomPanel = document.createElement('div');
@@ -442,6 +448,7 @@ function createAppShell() {
   bottomPanel.appendChild(replPane);
   bottomPanel.appendChild(pivotPane);
   bottomPanel.appendChild(notebookPane);
+  bottomPanel.appendChild(buildPane);
 
   dataView.appendChild(tablePane);
   dataView.appendChild(splitHandle);
@@ -449,6 +456,11 @@ function createAppShell() {
 
   content.appendChild(welcomeView);
   content.appendChild(dataView);
+
+  // Init build configurator (doesn't need data)
+  if (typeof createBuildConfig === 'function') {
+    createBuildConfig(buildPane);
+  }
 
   // Status bar
   var statusBar = document.createElement('div');

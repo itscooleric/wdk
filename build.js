@@ -37,6 +37,7 @@ var SOURCE_FILES = [
   'ui/repl.js',
   'ui/pivot-panel.js',
   'ui/notebook.js',
+  'ui/build-config.js',
   'ui/app-shell.js',
   'inspect/dom-scraper.js',
   'inspect/network-interceptor.js',
