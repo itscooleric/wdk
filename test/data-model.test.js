@@ -178,6 +178,44 @@ describe('DataFrame filtering and sorting', () => {
   });
 });
 
+describe('DataFrame deduplication', () => {
+  it('dedupe should remove fully duplicate rows', () => {
+    const t = new DataFrame(['a', 'b'], [['1', '2'], ['3', '4'], ['1', '2'], ['5', '6'], ['3', '4']]);
+    const d = t.dedupe();
+    assert.strictEqual(d.rowCount, 3);
+    assert.deepStrictEqual(d.getRow(0), ['1', '2']);
+    assert.deepStrictEqual(d.getRow(1), ['3', '4']);
+    assert.deepStrictEqual(d.getRow(2), ['5', '6']);
+  });
+
+  it('dedupe by key columns should keep first occurrence', () => {
+    const t = new DataFrame(['id', 'name', 'val'], [
+      ['1', 'Alice', '100'],
+      ['2', 'Bob', '200'],
+      ['1', 'Alice-updated', '300'],
+      ['3', 'Carol', '400'],
+    ]);
+    const d = t.dedupe(['id']);
+    assert.strictEqual(d.rowCount, 3);
+    assert.deepStrictEqual(d.getRow(0), ['1', 'Alice', '100']); // keeps first
+    assert.deepStrictEqual(d.getRow(1), ['2', 'Bob', '200']);
+    assert.deepStrictEqual(d.getRow(2), ['3', 'Carol', '400']);
+  });
+
+  it('dedupe should not modify original', () => {
+    const t = new DataFrame(['a'], [['1'], ['1'], ['2']]);
+    const d = t.dedupe();
+    assert.strictEqual(t.rowCount, 3);
+    assert.strictEqual(d.rowCount, 2);
+  });
+
+  it('dedupe with no duplicates returns same data', () => {
+    const t = new DataFrame(['a'], [['1'], ['2'], ['3']]);
+    const d = t.dedupe();
+    assert.strictEqual(d.rowCount, 3);
+  });
+});
+
 describe('DataFrame utilities', () => {
   it('clone should create a deep copy', () => {
     const t = new DataFrame(['a', 'b'], [['1', '2']]);

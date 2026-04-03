@@ -28,6 +28,7 @@ var SOURCE_FILES = [
   'transforms/pipeline.js',
   'transforms/redact.js',
   'transforms/pivot.js',
+  'transforms/sql-functions.js',
   'transforms/sql.js',
   'export/export.js',
   'util/detect-types.js',

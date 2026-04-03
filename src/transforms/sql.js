@@ -1,6 +1,7 @@
 /**
  * Wiz SQL engine — lightweight SQL SELECT parser + executor against DataFrames.
  * Supports: SELECT, FROM, WHERE, GROUP BY, ORDER BY, LIMIT, aliases, *, COUNT/SUM/AVG/MIN/MAX.
+ * Window functions: ROW_NUMBER, RANK, LAG, LEAD, SUM OVER, AVG OVER, COUNT OVER.
  * Zero dependencies. Not a full SQL parser — covers analyst use cases.
  */
 
@@ -15,8 +16,17 @@ function execSQL(sql, tables) {
   var df = tables[parsed.from];
   if (!df) throw new Error('Table "' + parsed.from + '" not found. Available: ' + Object.keys(tables).join(', '));
 
-  var headers = df._headers;
-  var rows = df._rows;
+  var headers, rows;
+
+  if (parsed.joins && parsed.joins.length > 0) {
+    var fromAlias = parsed.fromAlias ? parsed.fromAlias : parsed.from;
+    var merged = buildJoinedResult(df, fromAlias, parsed.joins, tables);
+    headers = merged.headers;
+    rows = merged.rows;
+  } else {
+    headers = df._headers;
+    rows = df._rows;
+  }
 
   // WHERE
   if (parsed.where) {
@@ -29,19 +39,36 @@ function execSQL(sql, tables) {
     return execGrouped(parsed, headers, rows);
   }
 
-  // SELECT columns
-  var colSpecs = resolveColumns(parsed.columns, headers);
+  // Separate window columns from regular columns
+  var windowCols = parsed.columns.filter(function (c) { return c.type === 'window'; });
+  var regularCols = parsed.columns.filter(function (c) { return c.type !== 'window'; });
 
-  // ORDER BY
+  // SELECT regular columns
+  var colSpecs = resolveColumns(regularCols, headers);
+
+  // ORDER BY (applied to source rows before projection)
   if (parsed.orderBy.length > 0) {
     rows = applyOrderBy(rows, parsed.orderBy, headers);
   }
 
-  // Project
+  // Project regular columns
   var outHeaders = colSpecs.map(function (c) { return c.alias; });
   var outRows = rows.map(function (row) {
     return colSpecs.map(function (c) { return row[c.idx]; });
   });
+
+  // Window functions — post-process on source rows, then append columns
+  if (windowCols.length > 0) {
+    var winResult = applyWindowFunctions(rows, headers, windowCols);
+    // Append window column headers
+    winResult.headers.forEach(function (h) { outHeaders.push(h); });
+    // Append window column values per row
+    for (var i = 0; i < outRows.length; i++) {
+      winResult.columns.forEach(function (col) {
+        outRows[i].push(col[i]);
+      });
+    }
+  }
 
   // LIMIT
   if (parsed.limit !== null) {
@@ -49,6 +76,90 @@ function execSQL(sql, tables) {
   }
 
   return { headers: outHeaders, rows: outRows };
+}
+
+// ─── JOIN executor ─────────────────────────────────────────────────────
+
+/**
+ * Build a flat joined result from the primary DataFrame + list of join specs.
+ * All headers in the result use "alias.col" notation.
+ */
+function buildJoinedResult(leftDf, leftAlias, joins, tables) {
+  var currentHeaders = leftDf._headers.map(function (h) { return leftAlias + '.' + h; });
+  var currentRows = leftDf._rows.map(function (r) { return r.slice(); });
+
+  for (var j = 0; j < joins.length; j++) {
+    var joinSpec = joins[j];
+    var rightTableName = joinSpec.table;
+    var rightAlias = joinSpec.alias ? joinSpec.alias : rightTableName;
+    var rightDf = tables[rightTableName];
+    if (!rightDf) throw new Error('JOIN: table "' + rightTableName + '" not found. Available: ' + Object.keys(tables).join(', '));
+
+    var rightHeaders = rightDf._headers.map(function (h) { return rightAlias + '.' + h; });
+    var rightRows = rightDf._rows;
+    var joinType = joinSpec.type;
+
+    var mergedHeaders = currentHeaders.concat(rightHeaders);
+    var nullRight = rightHeaders.map(function () { return null; });
+    var nullLeft = currentHeaders.map(function () { return null; });
+    var mergedRows = [];
+
+    if (joinType === 'cross') {
+      for (var li = 0; li < currentRows.length; li++) {
+        for (var ri = 0; ri < rightRows.length; ri++) {
+          mergedRows.push(currentRows[li].concat(rightRows[ri]));
+        }
+      }
+    } else {
+      // Resolve ON predicate indices into the merged header space
+      var onPreds = joinSpec.on.map(function (pred) {
+        var lIdx = mergedHeaders.indexOf(pred.left);
+        var rIdx = mergedHeaders.indexOf(pred.right);
+        if (lIdx === -1) throw new Error('JOIN ON: column "' + pred.left + '" not found in joined columns');
+        if (rIdx === -1) throw new Error('JOIN ON: column "' + pred.right + '" not found in joined columns');
+        return { lIdx: lIdx, rIdx: rIdx };
+      });
+
+      function rowsMatch(combined) {
+        for (var p = 0; p < onPreds.length; p++) {
+          if (combined[onPreds[p].lIdx] !== combined[onPreds[p].rIdx]) return false;
+        }
+        return true;
+      }
+
+      if (joinType === 'inner') {
+        for (var li = 0; li < currentRows.length; li++) {
+          for (var ri = 0; ri < rightRows.length; ri++) {
+            var combined = currentRows[li].concat(rightRows[ri]);
+            if (rowsMatch(combined)) mergedRows.push(combined);
+          }
+        }
+      } else if (joinType === 'left') {
+        for (var li = 0; li < currentRows.length; li++) {
+          var leftMatched = false;
+          for (var ri = 0; ri < rightRows.length; ri++) {
+            var combined = currentRows[li].concat(rightRows[ri]);
+            if (rowsMatch(combined)) { mergedRows.push(combined); leftMatched = true; }
+          }
+          if (!leftMatched) mergedRows.push(currentRows[li].concat(nullRight));
+        }
+      } else if (joinType === 'right') {
+        for (var ri = 0; ri < rightRows.length; ri++) {
+          var rightMatched = false;
+          for (var li = 0; li < currentRows.length; li++) {
+            var combined = currentRows[li].concat(rightRows[ri]);
+            if (rowsMatch(combined)) { mergedRows.push(combined); rightMatched = true; }
+          }
+          if (!rightMatched) mergedRows.push(nullLeft.concat(rightRows[ri]));
+        }
+      }
+    }
+
+    currentHeaders = mergedHeaders;
+    currentRows = mergedRows;
+  }
+
+  return { headers: currentHeaders, rows: currentRows };
 }
 
 // ─── Parser ───────────────────────────────────────────────────────────
@@ -76,6 +187,47 @@ function parseSelect(sql) {
 
   expect('FROM');
   var from = next().toLowerCase();
+
+  // Optional table alias: FROM tbl AS a  or  FROM tbl a
+  var fromAlias = null;
+  if (peek() === 'AS') { next(); fromAlias = next().toLowerCase(); }
+  else if (peek() !== '' && ['WHERE','JOIN','INNER','LEFT','RIGHT','CROSS','GROUP','ORDER','LIMIT'].indexOf(peek()) < 0) {
+    fromAlias = next().toLowerCase();
+  }
+
+  // JOINs: [INNER|LEFT [OUTER]|RIGHT [OUTER]|CROSS] JOIN tbl [AS alias] ON left = right [AND ...]
+  var joins = [];
+  while (['JOIN','INNER','LEFT','RIGHT','CROSS'].indexOf(peek()) >= 0) {
+    var joinType = 'inner';
+    if (peek() === 'INNER') { next(); joinType = 'inner'; }
+    else if (peek() === 'LEFT') { next(); joinType = 'left'; if (peek() === 'OUTER') next(); }
+    else if (peek() === 'RIGHT') { next(); joinType = 'right'; if (peek() === 'OUTER') next(); }
+    else if (peek() === 'CROSS') { next(); joinType = 'cross'; }
+    expect('JOIN');
+    var joinTable = next().toLowerCase();
+    var joinAlias = null;
+    if (peek() === 'AS') { next(); joinAlias = next().toLowerCase(); }
+    else if (peek() !== '' && ['ON','WHERE','JOIN','INNER','LEFT','RIGHT','CROSS','GROUP','ORDER','LIMIT'].indexOf(peek()) < 0) {
+      joinAlias = next().toLowerCase();
+    }
+    var onPreds = [];
+    if (joinType !== 'cross' && peek() === 'ON') {
+      next(); // consume ON
+      // Parse one or more equality predicates joined by AND
+      // Each predicate is: left . col = right . col  (tokenized as separate tokens)
+      do {
+        var lParts = [next()];
+        if (peek() === '.') { next(); lParts.push(next()); }
+        var leftCol = lParts.join('.').toLowerCase();
+        expect('=');
+        var rParts = [next()];
+        if (peek() === '.') { next(); rParts.push(next()); }
+        var rightCol = rParts.join('.').toLowerCase();
+        onPreds.push({ left: leftCol, right: rightCol });
+      } while (peek() === 'AND' && next() && true);
+    }
+    joins.push({ type: joinType, table: joinTable, alias: joinAlias, on: onPreds });
+  }
 
   // WHERE
   var where = null;
@@ -115,27 +267,91 @@ function parseSelect(sql) {
     limit = parseInt(next(), 10);
   }
 
-  return { columns: columns, from: from, where: where, groupBy: groupBy, orderBy: orderBy, limit: limit };
+  return { columns: columns, from: from, fromAlias: fromAlias, joins: joins, where: where, groupBy: groupBy, orderBy: orderBy, limit: limit };
 
   function parseColumnExpr() {
     var tok = peek();
-    // Check for aggregate: COUNT(col), SUM(col), etc.
-    if (['COUNT', 'SUM', 'AVG', 'MIN', 'MAX'].indexOf(tok) >= 0) {
+
+    // Check for window functions: ROW_NUMBER, RANK, LAG, LEAD, and agg OVER
+    var windowFuncs = ['ROW_NUMBER', 'RANK', 'LAG', 'LEAD'];
+    var aggWindowFuncs = ['COUNT', 'SUM', 'AVG', 'MIN', 'MAX'];
+    var isWindowFunc = windowFuncs.indexOf(tok) >= 0;
+    var isAggWindow = aggWindowFuncs.indexOf(tok) >= 0;
+
+    if (isWindowFunc || isAggWindow) {
       var fn = next();
       expect('(');
-      var arg = next(); // column name or *
+      // Collect arguments inside parens
+      var args = [];
+      while (peek() !== ')') {
+        if (peek() === ',') { next(); continue; }
+        args.push(next());
+      }
       expect(')');
-      var alias = fn.toLowerCase() + '_' + arg.toLowerCase();
-      if (peek() === 'AS') { next(); alias = next(); }
-      return { type: 'agg', func: fn.toLowerCase(), arg: arg, alias: alias };
+
+      // If followed by OVER, this is a window function
+      if (peek() === 'OVER') {
+        next(); // consume OVER
+        expect('(');
+
+        // PARTITION BY (optional)
+        var partitionBy = [];
+        if (peek() === 'PARTITION') {
+          next(); // PARTITION
+          // peek may be BY
+          if (tokens[pos] && tokens[pos].toUpperCase() === 'BY') next();
+          while (peek() !== ')' && peek() !== 'ORDER' && peek() !== '') {
+            if (peek() === ',') { next(); continue; }
+            partitionBy.push(next());
+          }
+        }
+
+        // ORDER BY (optional)
+        var overOrderBy = [];
+        if (peek() === 'ORDER') {
+          next(); // ORDER
+          if (tokens[pos] && tokens[pos].toUpperCase() === 'BY') next();
+          while (peek() !== ')' && peek() !== '') {
+            if (peek() === ',') { next(); continue; }
+            var ocol = next();
+            var odir = 'asc';
+            if (peek() === 'ASC') { next(); odir = 'asc'; }
+            else if (peek() === 'DESC') { next(); odir = 'desc'; }
+            overOrderBy.push({ column: ocol, dir: odir });
+          }
+        }
+
+        expect(')');
+
+        var defaultAlias = fn.toLowerCase() + '_over';
+        var alias = defaultAlias;
+        if (peek() === 'AS') { next(); alias = next(); }
+
+        return {
+          type: 'window',
+          func: fn.toLowerCase(),
+          args: args,
+          partitionBy: partitionBy,
+          orderBy: overOrderBy,
+          alias: alias
+        };
+      }
+
+      // Not a window function — fall back to aggregate
+      var arg = args.length > 0 ? args[0] : '*';
+      var aggAlias = fn.toLowerCase() + '_' + arg.toLowerCase();
+      if (peek() === 'AS') { next(); aggAlias = next(); }
+      return { type: 'agg', func: fn.toLowerCase(), arg: arg, alias: aggAlias };
     }
+
     // Star
     if (tok === '*') {
       next();
       return { type: 'star' };
     }
-    // Plain column, possibly aliased
+    // Plain column, possibly aliased (may be table.col — tokenized as ["table", ".", "col"])
     var name = next();
+    if (peek() === '.') { next(); name = name + '.' + next(); }
     var alias = name;
     if (peek() === 'AS') { next(); alias = next(); }
     return { type: 'col', name: name, alias: alias };
@@ -164,8 +380,8 @@ function tokenize(sql) {
       i = j + 1;
       continue;
     }
-    // Special chars
-    if ('(),*'.indexOf(sql[i]) >= 0) {
+    // Special chars (include . so table.col tokenizes as ["table",".","col"])
+    if ('(),*.'.indexOf(sql[i]) >= 0) {
       tokens.push(sql[i]);
       i++;
       continue;
@@ -177,7 +393,7 @@ function tokenize(sql) {
     if ('<>=,'.indexOf(sql[i]) >= 0) { tokens.push(sql[i]); i++; continue; }
     // Word/number
     var start = i;
-    while (i < sql.length && !/[\s(),<>=!,]/.test(sql[i]) && sql[i] !== "'") i++;
+    while (i < sql.length && !/[\s(),<>=!,.]/.test(sql[i]) && sql[i] !== "'") i++;
     if (i > start) tokens.push(sql.substring(start, i));
   }
   return tokens;
@@ -197,6 +413,8 @@ function compileWhere(whereStr, headers) {
       continue;
     }
     var col = parts[i++];
+    // Reassemble dotted column names: ["a", ".", "id"] → "a.id"
+    if (parts[i] === '.') { col = col + '.' + parts[i + 1]; i += 2; }
     var op = parts[i++];
     var val = parts[i++];
     // Strip quotes from string values
@@ -354,6 +572,189 @@ function execGrouped(parsed, headers, rows) {
   return { headers: outHeaders, rows: outRows };
 }
 
+// ─── Window Functions ─────────────────────────────────────────────────
+
+/**
+ * Apply window function expressions to a set of rows (already filtered/ordered).
+ * Returns { headers: string[], columns: any[][] } where each entry in columns
+ * is an array of values (one per row) for that window expression.
+ *
+ * @param {any[][]} rows - source rows
+ * @param {string[]} headers - source column headers
+ * @param {object[]} windowExprs - parsed window column specs (type === 'window')
+ * @returns {{ headers: string[], columns: any[][] }}
+ */
+function applyWindowFunctions(rows, headers, windowExprs) {
+  var outHeaders = [];
+  var outColumns = [];
+
+  windowExprs.forEach(function (expr) {
+    outHeaders.push(expr.alias);
+
+    var colIdx = expr.args.length > 0 && expr.args[0] !== '*'
+      ? headers.indexOf(expr.args[0])
+      : -1;
+    if (colIdx === -1 && ['lag', 'lead', 'sum', 'avg'].indexOf(expr.func) >= 0 && expr.func !== 'count') {
+      if (expr.args[0] && expr.args[0] !== '*') {
+        throw new Error('Window function: column "' + expr.args[0] + '" not found');
+      }
+    }
+
+    // Resolve partition-by and order-by column indices
+    var partIdxs = expr.partitionBy.map(function (name) {
+      var idx = headers.indexOf(name);
+      if (idx === -1) throw new Error('PARTITION BY: column "' + name + '" not found');
+      return idx;
+    });
+    var orderSpecs = expr.orderBy.map(function (o) {
+      var idx = headers.indexOf(o.column);
+      if (idx === -1) throw new Error('OVER ORDER BY: column "' + o.column + '" not found');
+      return { idx: idx, asc: o.dir === 'asc' };
+    });
+
+    // Assign each row its partition key
+    function partitionKey(row) {
+      if (partIdxs.length === 0) return '__all__';
+      return partIdxs.map(function (i) { return String(row[i]); }).join('\x00');
+    }
+
+    // Group row indices by partition key, preserving original order
+    var partitions = new Map();
+    for (var ri = 0; ri < rows.length; ri++) {
+      var key = partitionKey(rows[ri]);
+      if (!partitions.has(key)) partitions.set(key, []);
+      partitions.get(key).push(ri);
+    }
+
+    // For each partition, sort indices by the OVER ORDER BY if specified
+    function sortedIndices(idxList) {
+      if (orderSpecs.length === 0) return idxList.slice();
+      return idxList.slice().sort(function (a, b) {
+        for (var s = 0; s < orderSpecs.length; s++) {
+          var spec = orderSpecs[s];
+          var va = rows[a][spec.idx], vb = rows[b][spec.idx];
+          var na = Number(va), nb = Number(vb);
+          if (!isNaN(na) && !isNaN(nb)) { va = na; vb = nb; }
+          if (va < vb) return spec.asc ? -1 : 1;
+          if (va > vb) return spec.asc ? 1 : -1;
+        }
+        return 0;
+      });
+    }
+
+    // Compare two rows for ORDER BY equality (for RANK)
+    function orderEqual(rowA, rowB) {
+      for (var s = 0; s < orderSpecs.length; s++) {
+        var spec = orderSpecs[s];
+        var va = rowA[spec.idx], vb = rowB[spec.idx];
+        var na = Number(va), nb = Number(vb);
+        if (!isNaN(na) && !isNaN(nb)) { if (na !== nb) return false; }
+        else { if (String(va) !== String(vb)) return false; }
+      }
+      return true;
+    }
+
+    // Build result array indexed by original row position
+    var values = new Array(rows.length);
+
+    partitions.forEach(function (idxList) {
+      var sorted = sortedIndices(idxList);
+
+      switch (expr.func) {
+        case 'row_number':
+          sorted.forEach(function (origIdx, rank) {
+            values[origIdx] = rank + 1;
+          });
+          break;
+
+        case 'rank':
+          var rankVal = 1;
+          sorted.forEach(function (origIdx, pos) {
+            if (pos === 0) {
+              values[origIdx] = 1;
+            } else {
+              if (!orderEqual(rows[sorted[pos - 1]], rows[origIdx])) {
+                rankVal = pos + 1;
+              }
+              values[origIdx] = rankVal;
+            }
+          });
+          break;
+
+        case 'lag': {
+          var lagOffset = expr.args.length >= 2 ? parseInt(expr.args[1], 10) : 1;
+          var lagDefault = expr.args.length >= 3 ? expr.args[2] : null;
+          if (isNaN(lagOffset)) lagOffset = 1;
+          sorted.forEach(function (origIdx, pos) {
+            var srcPos = pos - lagOffset;
+            if (srcPos >= 0) {
+              values[origIdx] = rows[sorted[srcPos]][colIdx];
+            } else {
+              values[origIdx] = lagDefault;
+            }
+          });
+          break;
+        }
+
+        case 'lead': {
+          var leadOffset = expr.args.length >= 2 ? parseInt(expr.args[1], 10) : 1;
+          var leadDefault = expr.args.length >= 3 ? expr.args[2] : null;
+          if (isNaN(leadOffset)) leadOffset = 1;
+          sorted.forEach(function (origIdx, pos) {
+            var srcPos = pos + leadOffset;
+            if (srcPos < sorted.length) {
+              values[origIdx] = rows[sorted[srcPos]][colIdx];
+            } else {
+              values[origIdx] = leadDefault;
+            }
+          });
+          break;
+        }
+
+        case 'sum': {
+          // Running/cumulative sum when ORDER BY present; total when not
+          if (orderSpecs.length > 0) {
+            var runSum = 0;
+            sorted.forEach(function (origIdx) {
+              var v = Number(rows[origIdx][colIdx]);
+              runSum += isNaN(v) ? 0 : v;
+              values[origIdx] = runSum;
+            });
+          } else {
+            var total = 0;
+            sorted.forEach(function (origIdx) {
+              var v = Number(rows[origIdx][colIdx]);
+              total += isNaN(v) ? 0 : v;
+            });
+            sorted.forEach(function (origIdx) { values[origIdx] = total; });
+          }
+          break;
+        }
+
+        case 'avg': {
+          var nums = sorted.map(function (i) { return Number(rows[i][colIdx]); }).filter(function (n) { return !isNaN(n); });
+          var avgVal = nums.length ? nums.reduce(function (s, v) { return s + v; }, 0) / nums.length : 0;
+          sorted.forEach(function (origIdx) { values[origIdx] = avgVal; });
+          break;
+        }
+
+        case 'count': {
+          var cnt = sorted.length;
+          sorted.forEach(function (origIdx) { values[origIdx] = cnt; });
+          break;
+        }
+
+        default:
+          throw new Error('Unknown window function: ' + expr.func);
+      }
+    });
+
+    outColumns.push(values);
+  });
+
+  return { headers: outHeaders, columns: outColumns };
+}
+
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { execSQL: execSQL, parseSelect: parseSelect };
+  module.exports = { execSQL: execSQL, parseSelect: parseSelect, applyWindowFunctions: applyWindowFunctions };
 }

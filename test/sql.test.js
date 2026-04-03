@@ -140,3 +140,159 @@ describe('edge cases', function () {
     assert.equal(r.rows.length, 1);
   });
 });
+
+// ─── JOIN test data ───────────────────────────────────────────────────
+
+var joinTables = {
+  employees: {
+    _headers: ['id', 'name', 'dept_id'],
+    _rows: [
+      [1, 'Alice', 10],
+      [2, 'Bob', 10],
+      [3, 'Carol', 20],
+      [4, 'Dave', null],
+    ]
+  },
+  departments: {
+    _headers: ['id', 'dept_name'],
+    _rows: [
+      [10, 'Engineering'],
+      [20, 'Sales'],
+      [30, 'Marketing'],
+    ]
+  },
+  salaries: {
+    _headers: ['emp_id', 'amount'],
+    _rows: [
+      [1, 120],
+      [2, 100],
+      [3, 90],
+    ]
+  }
+};
+
+describe('JOIN', function () {
+  it('INNER JOIN returns only matching rows', function () {
+    var r = execSQL(
+      'SELECT employees.name, departments.dept_name FROM employees JOIN departments ON employees.dept_id = departments.id',
+      joinTables
+    );
+    assert.deepStrictEqual(r.headers, ['employees.name', 'departments.dept_name']);
+    // Alice, Bob (dept 10), Carol (dept 20) all match; Dave (null) does not
+    assert.equal(r.rows.length, 3);
+    var names = r.rows.map(function (row) { return row[0]; }).sort();
+    assert.deepStrictEqual(names, ['Alice', 'Bob', 'Carol']);
+  });
+
+  it('INNER JOIN (explicit INNER keyword) returns same as JOIN', function () {
+    var r = execSQL(
+      'SELECT employees.name FROM employees INNER JOIN departments ON employees.dept_id = departments.id',
+      joinTables
+    );
+    assert.equal(r.rows.length, 3);
+  });
+
+  it('LEFT JOIN includes unmatched left rows with nulls on right', function () {
+    var r = execSQL(
+      'SELECT employees.name, departments.dept_name FROM employees LEFT JOIN departments ON employees.dept_id = departments.id',
+      joinTables
+    );
+    // All 4 employees; Dave has no match so dept_name should be null
+    assert.equal(r.rows.length, 4);
+    var dave = r.rows.find(function (row) { return row[0] === 'Dave'; });
+    assert.ok(dave, 'Dave should be present');
+    assert.equal(dave[1], null);
+  });
+
+  it('RIGHT JOIN includes unmatched right rows with nulls on left', function () {
+    var r = execSQL(
+      'SELECT employees.name, departments.dept_name FROM employees RIGHT JOIN departments ON employees.dept_id = departments.id',
+      joinTables
+    );
+    // Marketing (id=30) has no employees, so name should be null
+    assert.equal(r.rows.length, 4); // Alice, Bob, Carol + Marketing null row
+    var marketing = r.rows.find(function (row) { return row[1] === 'Marketing'; });
+    assert.ok(marketing, 'Marketing row should be present');
+    assert.equal(marketing[0], null);
+  });
+
+  it('CROSS JOIN returns cartesian product', function () {
+    var small = {
+      a: { _headers: ['x'], _rows: [[1], [2]] },
+      b: { _headers: ['y'], _rows: [['p'], ['q'], ['r']] }
+    };
+    var r = execSQL('SELECT a.x, b.y FROM a CROSS JOIN b', small);
+    assert.equal(r.rows.length, 6); // 2 * 3
+  });
+
+  it('JOIN with table aliases', function () {
+    var r = execSQL(
+      'SELECT e.name, d.dept_name FROM employees AS e JOIN departments AS d ON e.dept_id = d.id',
+      joinTables
+    );
+    assert.equal(r.rows.length, 3);
+    var names = r.rows.map(function (row) { return row[0]; }).sort();
+    assert.deepStrictEqual(names, ['Alice', 'Bob', 'Carol']);
+  });
+
+  it('JOIN with implicit aliases (no AS keyword)', function () {
+    var r = execSQL(
+      'SELECT e.name, d.dept_name FROM employees e JOIN departments d ON e.dept_id = d.id',
+      joinTables
+    );
+    assert.equal(r.rows.length, 3);
+  });
+
+  it('JOIN with WHERE clause filters after join', function () {
+    var r = execSQL(
+      "SELECT e.name, d.dept_name FROM employees e JOIN departments d ON e.dept_id = d.id WHERE d.dept_name = 'Engineering'",
+      joinTables
+    );
+    assert.equal(r.rows.length, 2); // Alice and Bob
+    var names = r.rows.map(function (row) { return row[0]; }).sort();
+    assert.deepStrictEqual(names, ['Alice', 'Bob']);
+  });
+
+  it('JOIN with multi-column ON condition (AND)', function () {
+    var multiTables = {
+      orders: {
+        _headers: ['cust_id', 'prod_id', 'qty'],
+        _rows: [
+          [1, 'A', 5],
+          [1, 'B', 3],
+          [2, 'A', 1],
+        ]
+      },
+      prices: {
+        _headers: ['cust_id', 'prod_id', 'price'],
+        _rows: [
+          [1, 'A', 10],
+          [1, 'B', 20],
+          [2, 'A', 15],
+          [2, 'B', 25],
+        ]
+      }
+    };
+    var r = execSQL(
+      'SELECT orders.qty, prices.price FROM orders JOIN prices ON orders.cust_id = prices.cust_id AND orders.prod_id = prices.prod_id',
+      multiTables
+    );
+    // Each order has exactly one matching price row (same cust+prod)
+    assert.equal(r.rows.length, 3);
+    // cust=1,prod=A: qty=5,price=10; cust=1,prod=B: qty=3,price=20; cust=2,prod=A: qty=1,price=15
+    var sorted = r.rows.slice().sort(function (a, b) { return a[0] - b[0]; });
+    assert.equal(sorted[0][1], 15); // qty=1, price=15
+    assert.equal(sorted[1][1], 20); // qty=3, price=20
+    assert.equal(sorted[2][1], 10); // qty=5, price=10
+  });
+
+  it('SELECT * from JOIN expands all qualified columns', function () {
+    var r = execSQL(
+      'SELECT * FROM employees AS e JOIN departments AS d ON e.dept_id = d.id',
+      joinTables
+    );
+    // Headers should be all qualified columns from both tables
+    assert.deepStrictEqual(r.headers, ['e.id', 'e.name', 'e.dept_id', 'd.id', 'd.dept_name']);
+    assert.equal(r.rows.length, 3);
+  });
+});

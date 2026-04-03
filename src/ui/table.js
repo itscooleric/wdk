@@ -73,6 +73,14 @@ function injectTableStyles() {
     '  position: absolute; bottom: 4px; right: 12px; font-size: 10px;',
     '  color: ' + DK_TABLE_THEME.textDim + '; pointer-events: none; z-index: 3;',
     '}',
+    '.dk-copy-btn {',
+    '  position: absolute; top: 4px; right: 12px; z-index: 4;',
+    '  background: transparent; color: ' + DK_TABLE_THEME.textDim + ';',
+    '  border: 1px solid ' + DK_TABLE_THEME.border + '; border-radius: 2px;',
+    '  padding: 2px 8px; font-size: 10px; cursor: pointer;',
+    '  font-family: inherit; letter-spacing: 0.5px;',
+    '}',
+    '.dk-copy-btn:hover { color: ' + DK_TABLE_THEME.cyan + '; border-color: ' + DK_TABLE_THEME.cyan + '; }',
   ].join('\n');
   document.head.appendChild(style);
 }
@@ -224,9 +232,34 @@ function renderTable(container, df, onSort) {
       tbody.appendChild(bottomSpacer);
     }
 
+    // Copy to clipboard button (TSV for Excel paste)
+    var copyBtn = document.createElement('button');
+    copyBtn.className = 'dk-copy-btn';
+    copyBtn.textContent = 'Copy TSV';
+    copyBtn.title = 'Copy table as tab-separated values (paste into Excel)';
+    copyBtn.addEventListener('click', function () {
+      var lines = [headers.join('\t')];
+      for (var r = 0; r < rows.length; r++) {
+        lines.push(rows[r].map(function (v) { return v == null ? '' : String(v); }).join('\t'));
+      }
+      var tsv = lines.join('\n');
+      if (typeof copyToClipboard === 'function') {
+        copyToClipboard(tsv).then(function () {
+          copyBtn.textContent = 'Copied!';
+          setTimeout(function () { copyBtn.textContent = 'Copy TSV'; }, 1500);
+        });
+      } else if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(tsv).then(function () {
+          copyBtn.textContent = 'Copied!';
+          setTimeout(function () { copyBtn.textContent = 'Copy TSV'; }, 1500);
+        });
+      }
+    });
+
     container.appendChild(wrap);
     container.style.position = 'relative';
     container.appendChild(badge);
+    container.appendChild(copyBtn);
 
     // Initial render
     renderVisibleRows();

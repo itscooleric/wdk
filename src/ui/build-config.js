@@ -26,6 +26,7 @@ var DK_BUILD_MODULES = [
   { name: 'XLSX Parser', file: 'parsers/xlsx.js', size: 18570, tier: 'xlsx', required: false },
   { name: 'Pivot Engine', file: 'transforms/pivot.js', size: 6825, tier: 'analysis', required: false },
   { name: 'Pivot Panel', file: 'ui/pivot-panel.js', size: 6668, tier: 'analysis', required: false },
+  { name: 'SQL Functions', file: 'transforms/sql-functions.js', size: 7464, tier: 'analysis', required: false },
   { name: 'SQL Engine', file: 'transforms/sql.js', size: 11705, tier: 'analysis', required: false },
   { name: 'Notebook', file: 'ui/notebook.js', size: 9613, tier: 'analysis', required: false },
 

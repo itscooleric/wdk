@@ -84,6 +84,33 @@ class DataFrame {
     return table;
   }
 
+  // --- Deduplication ---
+
+  /**
+   * Remove duplicate rows. If keyCols provided, dedupes by those columns only
+   * (keeps first occurrence). Otherwise dedupes by all columns.
+   * @param {string[]} [keyCols] - Column names to dedupe by
+   * @returns {DataFrame}
+   */
+  dedupe(keyCols) {
+    var indices = keyCols
+      ? keyCols.map(name => {
+          var idx = this._headers.indexOf(name);
+          if (idx === -1) throw new Error('Column "' + name + '" not found');
+          return idx;
+        })
+      : this._headers.map((_, i) => i);
+    var seen = new Set();
+    var table = new DataFrame(this._headers);
+    table._rows = this._rows.filter(row => {
+      var key = indices.map(i => String(row[i])).join('\x00');
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+    return table;
+  }
+
   // --- Utilities ---
 
   clone() {
