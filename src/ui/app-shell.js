@@ -307,7 +307,7 @@ function createAppShell() {
 
   var tagline = document.createElement('span');
   tagline.id = 'dk-shell-tagline';
-  tagline.textContent = 'DataKit \u00b7 Data Workbench';
+  tagline.textContent = 'Wiz \u00b7 Data Workbench';
 
   var headerSpacer = document.createElement('span');
   headerSpacer.id = 'dk-shell-header-spacer';

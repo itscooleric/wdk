@@ -5,9 +5,9 @@
  * Concatenates source modules into a single IIFE bundle.
  *
  * Outputs:
- *   dist/datakit.js            — readable IIFE
- *   dist/datakit-bookmarklet.txt — javascript: URI (URL-encoded)
- *   dist/datakit.html          — standalone HTML with JS inlined
+ *   dist/wiz.js                — readable IIFE
+ *   dist/wiz-bookmarklet.txt   — javascript: URI (URL-encoded)
+ *   dist/wiz.html              — standalone HTML with JS inlined
  *
  * Usage: node build.js
  */
@@ -150,7 +150,7 @@ function buildHTML(jsContent) {
     '<meta charset="UTF-8">',
     '<meta name="viewport" content="width=device-width, initial-scale=1.0">',
     '<meta name="color-scheme" content="dark">',
-    '<title>Wizard \u00b7 DataKit</title>',
+    '<title>Wiz</title>',
     '<style>',
     '  /* Pre-paint baseline — prevents white flash before JS runs */',
     '  html { background: #0a0a1a; }',
@@ -203,7 +203,7 @@ function buildHTML(jsContent) {
 
 // --- Build ---
 
-console.log('DataKit build');
+console.log('Wiz build');
 console.log('Reading sources...');
 
 var parts = [];
@@ -233,17 +233,17 @@ if (!fs.existsSync(DIST)) {
 }
 
 // Write outputs
-var jsPath = path.join(DIST, 'datakit.js');
+var jsPath = path.join(DIST, 'wiz.js');
 fs.writeFileSync(jsPath, iife, 'utf8');
 console.log('  -> ' + jsPath + ' (' + iife.length + ' bytes)');
 
 var bookmarklet = 'javascript:' + encodeURIComponent(iife);
-var bmPath = path.join(DIST, 'datakit-bookmarklet.txt');
+var bmPath = path.join(DIST, 'wiz-bookmarklet.txt');
 fs.writeFileSync(bmPath, bookmarklet, 'utf8');
 console.log('  -> ' + bmPath + ' (' + bookmarklet.length + ' bytes)');
 
 var html = buildHTML(iife);
-var htmlPath = path.join(DIST, 'datakit.html');
+var htmlPath = path.join(DIST, 'wiz.html');
 fs.writeFileSync(htmlPath, html, 'utf8');
 console.log('  -> ' + htmlPath + ' (' + html.length + ' bytes)');
 
