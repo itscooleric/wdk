@@ -17,7 +17,7 @@ function createREPL(container, getContext) {
     'background:#121228;color:#e0e0ff;border:1px solid #2a2a4e;border-radius:4px',
     'font-family:inherit;font-size:inherit;outline:none;tab-size:2'
   ].join(';');
-  textarea.placeholder = '// Script runs with: data, rows, headers, meta, window\n// console.log/warn/error output appears below\n';
+  textarea.placeholder = '// Script runs with: df (alias: data), rows, headers, meta, window\n// console.log/warn/error output appears below\n';
   textarea.spellcheck = false;
 
   // Tab key inserts spaces instead of changing focus
@@ -144,8 +144,8 @@ function createREPL(container, getContext) {
 
     try {
       // Build function with context variables in scope
-      var fn = new Function('data', 'rows', 'headers', 'meta', 'window', code);
-      var result = fn(ctx.data, ctx.rows, ctx.headers, ctx.meta, window);
+      var fn = new Function('data', 'df', 'rows', 'headers', 'meta', 'window', code);
+      var result = fn(ctx.data, ctx.data, ctx.rows, ctx.headers, ctx.meta, window);
 
       if (result !== undefined) {
         appendOutput('=> ' + formatValue(result), '#80d080');

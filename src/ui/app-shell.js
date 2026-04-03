@@ -240,14 +240,14 @@ function guessColType(values) {
 }
 
 /**
- * Build column type badges from a DataTable.
+ * Build column type badges from a DataFrame.
  * Returns an array of { name, type } objects.
- * @param {object} dataTable
+ * @param {object} df
  * @returns {Array}
  */
-function buildColTypes(dataTable) {
-  var headers = dataTable._headers || [];
-  var rows = dataTable._rows || [];
+function buildColTypes(df) {
+  var headers = df._headers || [];
+  var rows = df._rows || [];
   return headers.map(function (h, i) {
     var values = rows.map(function (r) { return r[i]; });
     return { name: h, type: guessColType(values) };
@@ -272,7 +272,7 @@ function formatBytes(bytes) {
 function createAppShell() {
   injectShellStyles();
 
-  var currentTable = null;
+  var currentDf = null;
   var currentFilename = null;
   var replInstance = null;
   var toastTimer = null;
@@ -465,14 +465,14 @@ function createAppShell() {
   // ─── REPL context factory ─────────────────────────────────────────
 
   function getREPLContext() {
-    if (!currentTable) {
+    if (!currentDf) {
       return { data: [], rows: [], headers: [], meta: { rowCount: 0, columnCount: 0 } };
     }
-    var headers = currentTable._headers || [];
-    var rows = currentTable._rows || [];
+    var headers = currentDf._headers || [];
+    var rows = currentDf._rows || [];
     var data;
-    if (typeof currentTable.toObjects === 'function') {
-      data = currentTable.toObjects();
+    if (typeof currentDf.toObjects === 'function') {
+      data = currentDf.toObjects();
     } else {
       data = rows.map(function (row) {
         var obj = {};
@@ -491,7 +491,7 @@ function createAppShell() {
   // ─── Data loaded callback ─────────────────────────────────────────
 
   function onDataLoaded(table, filename) {
-    currentTable = table;
+    currentDf = table;
     currentFilename = filename || 'data';
 
     // Switch views
@@ -559,14 +559,14 @@ function createAppShell() {
   // ─── Export helpers ───────────────────────────────────────────────
 
   function exportCSV() {
-    if (!currentTable) return;
+    if (!currentDf) return;
     if (typeof toCSV !== 'function' || typeof downloadBlob !== 'function') {
       showToast('Export functions not available');
       return;
     }
     var csvContent = toCSV({
-      headers: currentTable._headers || [],
-      rows: currentTable._rows || []
+      headers: currentDf._headers || [],
+      rows: currentDf._rows || []
     });
     var name = (currentFilename || 'export').replace(/\.[^.]+$/, '') + '.csv';
     downloadBlob(csvContent, name, 'text/csv');
@@ -574,14 +574,14 @@ function createAppShell() {
   }
 
   function exportJSON() {
-    if (!currentTable) return;
+    if (!currentDf) return;
     if (typeof toJSON !== 'function' || typeof downloadBlob !== 'function') {
       showToast('Export functions not available');
       return;
     }
     var jsonContent = toJSON({
-      headers: currentTable._headers || [],
-      rows: currentTable._rows || []
+      headers: currentDf._headers || [],
+      rows: currentDf._rows || []
     }, { pretty: true, asArray: true });
     var name = (currentFilename || 'export').replace(/\.[^.]+$/, '') + '.json';
     downloadBlob(jsonContent, name, 'application/json');
@@ -591,7 +591,7 @@ function createAppShell() {
   // ─── Clear ────────────────────────────────────────────────────────
 
   function clearData() {
-    currentTable = null;
+    currentDf = null;
     currentFilename = null;
     replInstance = null;
 
@@ -697,18 +697,18 @@ function initDataKit() {
     if (typeof createPanel === 'function') {
       var panel = createPanel();
       var contentArea = panel.contentArea || panel.content || panel;
-      var currentTable = null;
+      var currentDf = null;
       var replInstance = null;
 
       function getREPLContext() {
-        if (!currentTable) {
+        if (!currentDf) {
           return { data: [], rows: [], headers: [], meta: { rowCount: 0, columnCount: 0 } };
         }
-        var headers = currentTable._headers || currentTable.headers || [];
-        var rows = currentTable._rows || currentTable.rows || [];
+        var headers = currentDf._headers || currentDf.headers || [];
+        var rows = currentDf._rows || currentDf.rows || [];
         var data;
-        if (typeof currentTable.toObjects === 'function') {
-          data = currentTable.toObjects();
+        if (typeof currentDf.toObjects === 'function') {
+          data = currentDf.toObjects();
         } else {
           data = rows.map(function (row) {
             var obj = {};
@@ -725,7 +725,7 @@ function initDataKit() {
       }
 
       function onDataLoaded(table) {
-        currentTable = table;
+        currentDf = table;
         if (typeof renderTable === 'function') {
           var tableContainer = contentArea.querySelector('.dk-table-container');
           if (!tableContainer) {

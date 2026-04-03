@@ -485,7 +485,7 @@ describe('parseXLSX (integration)', () => {
     );
   });
 
-  it('returns DataTable-compatible headers and rows (no DataTable class needed)', async () => {
+  it('returns DataFrame-compatible headers and rows (no DataFrame class needed)', async () => {
     const sharedStrings = '<sst><si><t>id</t></si><si><t>val</t></si></sst>';
     const sheetXml = [
       '<worksheet><sheetData>',
@@ -497,9 +497,9 @@ describe('parseXLSX (integration)', () => {
     const ab = buildMinimalXLSX([{ name: 'Data', xml: sheetXml }], sharedStrings);
     const result = await parseXLSX(ab);
 
-    // Verify the result is compatible with DataTable constructor
-    const { DataTable } = require('../src/transforms/data-model.js');
-    const dt = new DataTable(result.headers, result.rows);
+    // Verify the result is compatible with DataFrame constructor
+    const { DataFrame } = require('../src/transforms/data-model.js');
+    const dt = new DataFrame(result.headers, result.rows);
     assert.strictEqual(dt.rowCount, 1);
     assert.strictEqual(dt.columnCount, 2);
     assert.deepStrictEqual(dt.getRow(0), [1, 99]);

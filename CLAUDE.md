@@ -15,7 +15,7 @@ node build.js    # outputs dist/wiz.js, dist/wiz-bookmarklet.txt, dist/wiz.html
 ## Architecture
 ```
 src/parsers/     — CSV, JSON, TSV, XLSX (zero-dep ZIP + XML) parsers
-src/transforms/  — DataTable model, pipeline (undo/redo), redaction
+src/transforms/  — DataFrame model, pipeline (undo/redo), redaction
 src/export/      — CSV/JSON export, clipboard, download
 src/ui/          — Panel, table renderer, file import, REPL, app shell
 src/util/        — Type detection, column profiling

@@ -17,7 +17,7 @@ function escapeCSV(value, delimiter) {
 }
 
 /**
- * Convert a DataTable to a CSV string.
+ * Convert a DataFrame to a CSV string.
  *
  * @param {{ headers: string[], rows: any[][] }} table
  * @param {{ delimiter?: string, includeHeaders?: boolean }} [options]
@@ -41,7 +41,7 @@ export function toCSV(table, options = {}) {
 }
 
 /**
- * Convert a DataTable to a JSON string.
+ * Convert a DataFrame to a JSON string.
  *
  * @param {{ headers: string[], rows: any[][] }} table
  * @param {{ pretty?: boolean, asArray?: boolean }} [options]

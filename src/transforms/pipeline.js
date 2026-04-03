@@ -18,7 +18,7 @@ function deepClone(obj) {
 
 class Pipeline {
   /**
-   * @param {object} initialData - The initial DataTable
+   * @param {object} initialData - The initial DataFrame
    */
   constructor(initialData) {
     this._original = deepClone(initialData);
@@ -29,7 +29,7 @@ class Pipeline {
 
   /**
    * Apply a transform function to the current state.
-   * @param {function} transformFn - Receives current DataTable, returns new DataTable
+   * @param {function} transformFn - Receives current DataFrame, returns new DataFrame
    * @param {string} description - Human-readable description of the transform
    * @returns {object} The new current state
    */

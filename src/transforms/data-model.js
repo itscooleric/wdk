@@ -1,4 +1,4 @@
-class DataTable {
+class DataFrame {
   constructor(headers = [], rows = []) {
     this._headers = [...headers];
     this._rows = rows.map(r => [...r]);
@@ -66,7 +66,7 @@ class DataTable {
   }
 
   filterRows(predicate) {
-    const table = new DataTable(this._headers);
+    const table = new DataFrame(this._headers);
     table._rows = this._rows.filter((row, i) => predicate(row, i));
     return table;
   }
@@ -79,7 +79,7 @@ class DataTable {
       if (a[idx] > b[idx]) return ascending ? 1 : -1;
       return 0;
     });
-    const table = new DataTable(this._headers);
+    const table = new DataFrame(this._headers);
     table._rows = sorted;
     return table;
   }
@@ -87,7 +87,7 @@ class DataTable {
   // --- Utilities ---
 
   clone() {
-    return new DataTable(this._headers, this._rows);
+    return new DataFrame(this._headers, this._rows);
   }
 
   toObjects() {
@@ -99,4 +99,4 @@ class DataTable {
   }
 }
 
-module.exports = { DataTable };
+module.exports = { DataFrame, DataTable: DataFrame };

@@ -1,6 +1,6 @@
 /**
  * DataKit XLSX Parser
- * Reads .xlsx files (OOXML ZIP archives) and returns DataTable-compatible objects.
+ * Reads .xlsx files (OOXML ZIP archives) and returns DataFrame-compatible objects.
  * Zero external dependencies. Works in modern browsers via DecompressionStream API.
  *
  * Supports:
@@ -409,7 +409,7 @@ function parseSheet(xml, sharedStrings, cellXfs, numFmts) {
 /**
  * Parse an .xlsx file from an ArrayBuffer.
  *
- * Returns an object compatible with the DataTable constructor:
+ * Returns an object compatible with the DataFrame constructor:
  *   { headers: string[], rows: any[][] }
  *
  * Also exposes all sheets via result.sheets (array of { name, headers, rows }).

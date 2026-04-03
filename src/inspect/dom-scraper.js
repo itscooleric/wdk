@@ -24,11 +24,11 @@
   }
 
   /**
-   * Extract an HTML <table> element into a DataTable object.
+   * Extract an HTML <table> element into a DataFrame object.
    * @param {HTMLTableElement} table
    * @returns {{ headers: string[], rows: string[][] }}
    */
-  function tableToDataTable(table) {
+  function tableToDataFrame(table) {
     var headers = [];
     var rows = [];
     var headerRow = table.querySelector('thead tr') || table.querySelector('tr');
@@ -93,7 +93,7 @@
 
   /**
    * Create a DOM scraper instance.
-   * @param {function} onData - Callback receiving a DataTable object when a table is extracted.
+   * @param {function} onData - Callback receiving a DataFrame object when a table is extracted.
    * @returns {{ startSelect: function, stopSelect: function, extractBySelector: function }}
    */
   function createDOMScraper(onData) {
@@ -130,7 +130,7 @@
           lastHighlighted.classList.remove(HIGHLIGHT_CLASS);
           lastHighlighted = null;
         }
-        var data = tableToDataTable(table);
+        var data = tableToDataFrame(table);
         if (typeof onData === 'function') {
           onData(data);
         }
@@ -169,7 +169,7 @@
       if (!el) return null;
       var table = (el.tagName === 'TABLE') ? el : findTable(el);
       if (!table) return null;
-      var data = tableToDataTable(table);
+      var data = tableToDataFrame(table);
       if (typeof onData === 'function') {
         onData(data);
       }

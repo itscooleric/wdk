@@ -1,6 +1,6 @@
 /**
  * INSPECT-005: Storage Viewer
- * Reads cookies, localStorage, and sessionStorage as DataTable-compatible output.
+ * Reads cookies, localStorage, and sessionStorage as DataFrame-compatible output.
  * Zero dependencies, var declarations, dk- prefixed CSS.
  */
 (function () {
@@ -50,7 +50,7 @@
   }
 
   /**
-   * Capture all browser storage as a DataTable.
+   * Capture all browser storage as a DataFrame.
    * @returns {{ headers: string[], rows: string[][] }}
    */
   function captureStorage() {

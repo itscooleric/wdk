@@ -1,11 +1,11 @@
 /**
  * DataKit file import UI.
  * Drag-and-drop zone + file input for .csv, .json, .tsv files.
- * Parses files and returns DataTable via callback.
+ * Parses files and returns DataFrame via callback.
  * Zero external dependencies.
  */
 
-/* global parseCSV, parseJSON, parseXLSX, DataTable */
+/* global parseCSV, parseJSON, parseXLSX, DataFrame */
 
 var DK_IMPORT_THEME = {
   bg: '#0a0a1a',
@@ -88,36 +88,36 @@ function detectFileType(filename) {
 }
 
 /**
- * Parse file text into a DataTable.
+ * Parse file text into a DataFrame.
  * @param {string} text - File content
  * @param {string} type - 'csv', 'tsv', or 'json'
- * @returns {DataTable}
+ * @returns {DataFrame}
  */
 function parseFileText(text, type) {
   if (type === 'csv' || type === 'tsv') {
     var delimiter = type === 'tsv' ? '\t' : ',';
     var result = parseCSV(text, { delimiter: delimiter, hasHeader: true });
-    return new DataTable(result.headers, result.rows);
+    return new DataFrame(result.headers, result.rows);
   }
 
   if (type === 'json') {
     var parsed = parseJSON(text);
     if (parsed.tabular) {
-      return new DataTable(parsed.tabular.headers, parsed.tabular.rows);
+      return new DataFrame(parsed.tabular.headers, parsed.tabular.rows);
     }
     // Non-tabular JSON: show as single-column table
     var data = parsed.data;
     if (Array.isArray(data)) {
-      return new DataTable(['value'], data.map(function (v) { return [JSON.stringify(v)]; }));
+      return new DataFrame(['value'], data.map(function (v) { return [JSON.stringify(v)]; }));
     }
     // Single object: key-value table
     if (typeof data === 'object' && data !== null) {
       var keys = Object.keys(data);
-      return new DataTable(['key', 'value'], keys.map(function (k) {
+      return new DataFrame(['key', 'value'], keys.map(function (k) {
         return [k, JSON.stringify(data[k])];
       }));
     }
-    return new DataTable(['value'], [[JSON.stringify(data)]]);
+    return new DataFrame(['value'], [[JSON.stringify(data)]]);
   }
 
   throw new Error('Unsupported file type: ' + type);
@@ -195,7 +195,7 @@ function createFileImport(container, onData) {
           return;
         }
         parseXLSX(binReader.result).then(function (result) {
-          var dt = new DataTable(result.headers, result.rows);
+          var dt = new DataFrame(result.headers, result.rows);
           onData(dt, file.name);
         }).catch(function (err) {
           showError('XLSX parse error: ' + err.message);

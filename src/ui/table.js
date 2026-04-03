@@ -1,6 +1,6 @@
 /**
  * DataKit table renderer.
- * Renders a DataTable into a sortable, scrollable HTML table.
+ * Renders a DataFrame into a sortable, scrollable HTML table.
  * Synthwave 84 dark theme. Zero external dependencies.
  */
 
@@ -68,14 +68,14 @@ function injectTableStyles() {
 }
 
 /**
- * Render a DataTable into an HTML table inside a container element.
+ * Render a DataFrame into an HTML table inside a container element.
  *
  * @param {HTMLElement} container - The element to render into (will be cleared)
- * @param {DataTable} dataTable - The DataTable to render
+ * @param {DataFrame} df - The DataFrame to render
  * @param {Function} [onSort] - Callback: onSort(columnName, ascending)
- * @returns {{ refresh: Function }} - Call refresh(newDataTable) to re-render
+ * @returns {{ refresh: Function }} - Call refresh(newDataFrame) to re-render
  */
-function renderTable(container, dataTable, onSort) {
+function renderTable(container, df, onSort) {
   injectTableStyles();
 
   var sortCol = null;
@@ -166,11 +166,11 @@ function renderTable(container, dataTable, onSort) {
     container.appendChild(wrap);
   }
 
-  render(dataTable);
+  render(df);
 
   return {
-    refresh: function (newDataTable) {
-      render(newDataTable);
+    refresh: function (newDataFrame) {
+      render(newDataFrame);
     },
   };
 }
