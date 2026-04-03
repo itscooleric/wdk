@@ -5,7 +5,7 @@
  * Synthwave 84 dark theme. Zero external dependencies.
  */
 
-/* global createPanel, createFileImport, renderTable, createREPL, toCSV, toJSON, downloadBlob */
+/* global createPanel, createFileImport, renderTable, createREPL, createPivotPanel, aggregate, pivot, toCSV, toJSON, downloadBlob */
 
 var DK_SHELL_THEME = {
   bg: '#0a0a1a',
@@ -275,6 +275,7 @@ function createAppShell() {
   var currentDf = null;
   var currentFilename = null;
   var replInstance = null;
+  var pivotInstance = null;
   var toastTimer = null;
 
   // ─── Toast notification ──────────────────────────────────────────
@@ -397,9 +398,46 @@ function createAppShell() {
   var replPane = document.createElement('div');
   replPane.id = 'dk-shell-repl-pane';
 
+  var pivotPane = document.createElement('div');
+  pivotPane.id = 'dk-shell-pivot-pane';
+  pivotPane.style.cssText = 'flex:1;overflow:hidden;display:none;flex-direction:column;';
+
+  // Bottom panel tab bar
+  var bottomTabBar = document.createElement('div');
+  bottomTabBar.style.cssText = 'display:flex;gap:0;background:#0a0a1a;border-bottom:1px solid ' + DK_SHELL_THEME.border + ';flex-shrink:0;';
+  function makeBottomTab(label, target) {
+    var btn = document.createElement('button');
+    btn.textContent = label;
+    btn.style.cssText = 'background:transparent;color:' + DK_SHELL_THEME.textDim + ';border:none;border-bottom:2px solid transparent;padding:4px 12px;cursor:pointer;font-family:inherit;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;';
+    btn.addEventListener('click', function () {
+      replPane.style.display = target === 'repl' ? 'flex' : 'none';
+      pivotPane.style.display = target === 'pivot' ? 'flex' : 'none';
+      bottomTabBar.querySelectorAll('button').forEach(function (b) {
+        b.style.color = DK_SHELL_THEME.textDim;
+        b.style.borderBottomColor = 'transparent';
+      });
+      btn.style.color = DK_SHELL_THEME.cyan;
+      btn.style.borderBottomColor = DK_SHELL_THEME.cyan;
+    });
+    return btn;
+  }
+  var replTab = makeBottomTab('REPL', 'repl');
+  var pivotTab = makeBottomTab('Pivot', 'pivot');
+  replTab.style.color = DK_SHELL_THEME.cyan;
+  replTab.style.borderBottomColor = DK_SHELL_THEME.cyan;
+  bottomTabBar.appendChild(replTab);
+  bottomTabBar.appendChild(pivotTab);
+
+  // Bottom panel container
+  var bottomPanel = document.createElement('div');
+  bottomPanel.style.cssText = 'height:280px;min-height:80px;flex-shrink:0;overflow:hidden;display:flex;flex-direction:column;';
+  bottomPanel.appendChild(bottomTabBar);
+  bottomPanel.appendChild(replPane);
+  bottomPanel.appendChild(pivotPane);
+
   dataView.appendChild(tablePane);
   dataView.appendChild(splitHandle);
-  dataView.appendChild(replPane);
+  dataView.appendChild(bottomPanel);
 
   content.appendChild(welcomeView);
   content.appendChild(dataView);
@@ -508,6 +546,15 @@ function createAppShell() {
     if (typeof createREPL === 'function' && !replInstance) {
       replPane.innerHTML = '';
       replInstance = createREPL(replPane, getREPLContext);
+    }
+
+    // Create Pivot panel once, refresh columns on each load
+    if (typeof createPivotPanel === 'function') {
+      if (!pivotInstance) {
+        pivotPane.innerHTML = '';
+        pivotInstance = createPivotPanel(pivotPane, function () { return currentDf; });
+      }
+      pivotInstance.refresh();
     }
 
     // Update status bar
