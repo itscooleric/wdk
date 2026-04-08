@@ -212,7 +212,7 @@ function isStandaloneMode() {
   // file:// protocol — always standalone
   if (loc.protocol === 'file:') return true;
   // URL pathname ends with datakit.html
-  if (loc.pathname && /datakit\.html?$/i.test(loc.pathname)) return true;
+  if (loc.pathname && /wdk\.html?$/i.test(loc.pathname)) return true;
   // Body has no children at all yet (freshly opened page)
   if (document.body && document.body.children.length === 0) return true;
   return false;
