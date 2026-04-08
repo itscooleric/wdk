@@ -1,5 +1,5 @@
 /**
- * Wiz SQL Functions — string, date, math, and type functions for the SQL engine.
+ * WDK SQL Functions — string, date, math, and type functions for the SQL engine.
  * Evaluates function calls in SELECT and WHERE expressions.
  * Zero dependencies.
  */

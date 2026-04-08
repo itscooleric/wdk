@@ -1,5 +1,5 @@
 /**
- * DataKit XLSX Parser
+ * WDK XLSX Parser
  * Reads .xlsx files (OOXML ZIP archives) and returns DataFrame-compatible objects.
  * Zero external dependencies. Works in modern browsers via DecompressionStream API.
  *

@@ -1,5 +1,5 @@
 /**
- * DataKit file import UI.
+ * WDK file import UI.
  * Drag-and-drop zone + file input for .csv, .json, .tsv files.
  * Parses files and returns DataFrame via callback.
  * Zero external dependencies.

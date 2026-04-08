@@ -80,6 +80,6 @@
   }
 
   // Expose globally
-  window.DataKit = window.DataKit || {};
-  window.DataKit.startCapture = startCapture;
+  window.WDK = window.WDK || {};
+  window.WDK.startCapture = startCapture;
 })();

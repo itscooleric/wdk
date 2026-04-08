@@ -184,6 +184,6 @@
   }
 
   // Expose globally
-  window.DataKit = window.DataKit || {};
-  window.DataKit.createDOMScraper = createDOMScraper;
+  window.WDK = window.WDK || {};
+  window.WDK.createDOMScraper = createDOMScraper;
 })();

@@ -1,5 +1,5 @@
 /**
- * Wiz PII Scanner — two-pass regex-based PII detection.
+ * WDK PII Scanner — two-pass regex-based PII detection.
  * Pass 1 (gate): fast regex scan for candidate matches.
  * Pass 2 (validate): Luhn checksum, SSN area validation, context scoring.
  * Consumes pii-patterns.json (shared with PowerShell scanner).

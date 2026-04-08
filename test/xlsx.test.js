@@ -1,5 +1,5 @@
 /**
- * Tests for DataKit XLSX parser (zip.js + xlsx.js).
+ * Tests for WDK XLSX parser (zip.js + xlsx.js).
  *
  * These tests run under Node.js (node:test).
  * DecompressionStream is polyfilled from stream/web for the stored-method ZIP tests.

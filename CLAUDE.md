@@ -1,4 +1,4 @@
-# Wiz (formerly DataKit)
+# WDK — Wizard's Data Engineering Kit
 
 Tiered browser-based data engineering toolkit for restricted environments. Sanitize, transform, and inspect data without transferring applications.
 
@@ -9,7 +9,7 @@ Tiered browser-based data engineering toolkit for restricted environments. Sanit
 
 ## Build
 ```bash
-node build.js    # outputs dist/wiz.js, dist/wiz-bookmarklet.txt, dist/wiz.html
+node build.js    # outputs dist/wdk.js, dist/wdk-bookmarklet.txt, dist/wdk.html
 ```
 
 ## Architecture
@@ -23,8 +23,8 @@ src/inspect/     — DOM scraper, network interceptor, storage viewer, console c
 ```
 
 ## Tiers
-- **Tier 1 (Bookmarklet):** Inject into any page. Paste `javascript:` URI from dist/wiz-bookmarklet.txt
-- **Tier 2 (Static HTML):** Open dist/wiz.html locally. Full Wizard app shell with XLSX support.
+- **Tier 1 (Bookmarklet):** Inject into any page. Paste `javascript:` URI from dist/wdk-bookmarklet.txt
+- **Tier 2 (Static HTML):** Open dist/wdk.html locally. Full WDK app shell with XLSX support.
 - **Tier 3 (Localhost):** Serve with any HTTP server. DuckDB-WASM, Parquet planned.
 
 ## Standalone

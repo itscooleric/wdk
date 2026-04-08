@@ -1,5 +1,5 @@
 /**
- * Wiz pivot / aggregation engine.
+ * WDK pivot / aggregation engine.
  * Provides groupBy, aggregate, and pivot table operations on DataFrames.
  * Zero dependencies.
  */

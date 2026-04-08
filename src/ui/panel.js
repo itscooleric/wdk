@@ -1,5 +1,5 @@
 /**
- * DataKit floating panel UI.
+ * WDK floating panel UI.
  * Injects a draggable, resizable panel into any web page.
  * Synthwave 84 dark theme. Zero external dependencies.
  */
@@ -104,7 +104,7 @@ function createPanel() {
   var miniIcon = document.createElement('button');
   miniIcon.className = 'dk-mini-icon';
   miniIcon.textContent = 'D';
-  miniIcon.title = 'DataKit (Ctrl+Shift+D)';
+  miniIcon.title = 'WDK (Ctrl+Shift+D)';
 
   // --- Main panel ---
   var panel = document.createElement('div');

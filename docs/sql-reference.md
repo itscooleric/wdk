@@ -1,4 +1,4 @@
-# Wiz SQL Reference
+# WDK SQL Reference
 
 ## Syntax
 

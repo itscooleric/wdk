@@ -1,5 +1,5 @@
 /**
- * DataKit REPL / Script Panel
+ * WDK REPL / Script Panel
  * Interactive scripting against loaded data.
  * Export: createREPL(container, getContext)
  *   getContext() => { data: object[], rows: any[][], headers: string[], meta: { rowCount, columnCount } }

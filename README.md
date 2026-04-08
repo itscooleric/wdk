@@ -1,7 +1,7 @@
-# wiz
+# WDK — Wizard's Data Engineering Kit
 
 ```
-  portable data engineering toolkit    v2
+  wizard's data engineering kit        v2
   ──────────────────────────────────────
 
   csv/json/xlsx ──► transform ──► export
@@ -27,7 +27,7 @@ Browser-based data engineering workbench for **restricted environments** — gov
 
 Every restricted industry converges on the same unmet need: portable data analysis that works within compliance boundaries without installation. The 100,000+ Advana users on DoD networks, 30+ million Chromebook students, and countless hospital/banking analysts working in locked-down environments all face the same gap: "I have a CSV and I need answers, but I can't install anything."
 
-Wiz fills that gap.
+WDK fills that gap.
 
 ## Modules
 
@@ -91,15 +91,15 @@ WHERE LENGTH(name) > 5 AND DATEDIFF(hire_date, TODAY()) > 365
 ## Deployment
 
 ### Standalone HTML (recommended)
-Open `dist/wiz.html` in any browser. Everything is inlined — no server, no network.
+Open `dist/wdk.html` in any browser. Everything is inlined — no server, no network.
 
 ### Bookmarklet
-Paste contents of `dist/wiz-bookmarklet.txt` as a bookmark URL. Click it on any page to inject Wiz as a floating panel.
+Paste contents of `dist/wdk-bookmarklet.txt` as a bookmark URL. Click it on any page to inject WDK as a floating panel.
 
 ### SharePoint (government/enterprise)
 - **SP 2019 / SPO:** Deploy as SPFx web part (`.sppkg` carries across air gap)
-- **SP 2016 / 2013:** Upload `wiz.js` to a document library, inject via Script Editor Web Part
-- **Any version:** Upload `wiz.html` to a document library and open directly
+- **SP 2016 / 2013:** Upload `wdk.js` to a document library, inject via Script Editor Web Part
+- **Any version:** Upload `wdk.html` to a document library and open directly
 
 ### localhost (full API access)
 Serve via PowerShell HttpListener for proper HTTP origin (unlocks File System Access API, OPFS, Web Workers):

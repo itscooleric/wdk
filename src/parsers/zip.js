@@ -1,5 +1,5 @@
 /**
- * Minimal ZIP reader for DataKit.
+ * Minimal ZIP reader for WDK.
  * Reads ZIP local file headers and extracts entries using the DecompressionStream API.
  * Zero dependencies. Works in modern browsers.
  *

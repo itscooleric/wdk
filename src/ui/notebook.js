@@ -1,5 +1,5 @@
 /**
- * Wiz Notebook — code+output cells supporting JS and SQL.
+ * WDK Notebook — code+output cells supporting JS and SQL.
  * Each cell can be JS (runs against df context) or SQL (runs against named tables).
  * Synthwave 84 theme. Zero dependencies.
  */

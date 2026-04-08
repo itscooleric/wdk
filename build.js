@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 
 /**
- * DataKit Build Script
+ * WDK Build Script
  * Concatenates source modules into a single IIFE bundle.
  *
  * Outputs:
- *   dist/wiz.js                — readable IIFE
- *   dist/wiz-bookmarklet.txt   — javascript: URI (URL-encoded)
- *   dist/wiz.html              — standalone HTML with JS inlined
+ *   dist/wdk.js                — readable IIFE
+ *   dist/wdk-bookmarklet.txt   — javascript: URI (URL-encoded)
+ *   dist/wdk.html              — standalone HTML with JS inlined
  *
  * Usage: node build.js
  */
@@ -78,20 +78,20 @@ function readSource(relPath) {
 
 function buildMain() {
   // main() wires everything together after modules are loaded.
-  // If app-shell is present (Tier 2 build) it delegates to initDataKit()
+  // If app-shell is present (Tier 2 build) it delegates to initWDK()
   // which handles standalone vs bookmarklet detection internally.
   // If app-shell is absent it falls back to the legacy createPanel() flow.
   return [
     'function main() {',
     '  // Prefer app-shell entry point (Tier 2)',
-    '  if (typeof initDataKit === "function") {',
-    '    initDataKit();',
+    '  if (typeof initWDK === "function") {',
+    '    initWDK();',
     '    return;',
     '  }',
     '',
     '  // Legacy bookmarklet-only fallback',
     '  if (typeof createPanel !== "function") {',
-    '    console.error("DataKit: createPanel not available. Build may be incomplete.");',
+    '    console.error("WDK: createPanel not available. Build may be incomplete.");',
     '    return;',
     '  }',
     '',
@@ -167,7 +167,7 @@ function buildHTML(jsContent) {
     '<meta charset="UTF-8">',
     '<meta name="viewport" content="width=device-width, initial-scale=1.0">',
     '<meta name="color-scheme" content="dark">',
-    '<title>Wiz</title>',
+    '<title>WDK</title>',
     '<style>',
     '  /* Pre-paint baseline — prevents white flash before JS runs */',
     '  html { background: #0a0a1a; }',
@@ -195,7 +195,7 @@ function buildHTML(jsContent) {
     '</style>',
     '</head>',
     '<body>',
-    '<div id="dk-boot"><span>WIZARD</span></div>',
+    '<div id="dk-boot"><span>WDK</span></div>',
     '<script>',
     '// Remove boot screen once shell is ready',
     '(function removeBoot() {',
@@ -220,7 +220,7 @@ function buildHTML(jsContent) {
 
 // --- Build ---
 
-console.log('Wiz build');
+console.log('WDK build');
 console.log('Reading sources...');
 
 var parts = [];
@@ -250,17 +250,17 @@ if (!fs.existsSync(DIST)) {
 }
 
 // Write outputs
-var jsPath = path.join(DIST, 'wiz.js');
+var jsPath = path.join(DIST, 'wdk.js');
 fs.writeFileSync(jsPath, iife, 'utf8');
 console.log('  -> ' + jsPath + ' (' + iife.length + ' bytes)');
 
 var bookmarklet = 'javascript:' + encodeURIComponent(iife);
-var bmPath = path.join(DIST, 'wiz-bookmarklet.txt');
+var bmPath = path.join(DIST, 'wdk-bookmarklet.txt');
 fs.writeFileSync(bmPath, bookmarklet, 'utf8');
 console.log('  -> ' + bmPath + ' (' + bookmarklet.length + ' bytes)');
 
 var html = buildHTML(iife);
-var htmlPath = path.join(DIST, 'wiz.html');
+var htmlPath = path.join(DIST, 'wdk.html');
 fs.writeFileSync(htmlPath, html, 'utf8');
 console.log('  -> ' + htmlPath + ' (' + html.length + ' bytes)');
 

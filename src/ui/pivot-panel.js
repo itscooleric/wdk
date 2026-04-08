@@ -1,5 +1,5 @@
 /**
- * Wiz Pivot Table Panel.
+ * WDK Pivot Table Panel.
  * Provides a UI for groupBy, aggregate, and pivot operations.
  * Renders config controls and result table inline.
  */

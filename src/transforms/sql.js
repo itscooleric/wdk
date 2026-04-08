@@ -1,5 +1,5 @@
 /**
- * Wiz SQL engine — lightweight SQL SELECT parser + executor against DataFrames.
+ * WDK SQL engine — lightweight SQL SELECT parser + executor against DataFrames.
  * Supports: SELECT, FROM, WHERE, GROUP BY, ORDER BY, LIMIT, aliases, *, COUNT/SUM/AVG/MIN/MAX.
  * Window functions: ROW_NUMBER, RANK, LAG, LEAD, SUM OVER, AVG OVER, COUNT OVER.
  * Zero dependencies. Not a full SQL parser — covers analyst use cases.

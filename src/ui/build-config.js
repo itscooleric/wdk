@@ -1,5 +1,5 @@
 /**
- * Wiz Build Configurator UI.
+ * WDK Build Configurator UI.
  * Shows all modules with sizes, toggle on/off, displays build tier estimates.
  * Helps users understand what's included at each build level.
  */

@@ -1,5 +1,5 @@
 /**
- * DataKit Export Module
+ * WDK Export Module
  * Zero-dependency export to CSV, JSON, clipboard, and file download.
  */
 

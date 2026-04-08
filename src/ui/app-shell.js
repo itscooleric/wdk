@@ -1,5 +1,5 @@
 /**
- * DataKit App Shell
+ * WDK App Shell
  * Full-page standalone application shell for Tier 2 deployment.
  * Detects bookmarklet vs standalone mode and routes accordingly.
  * Synthwave 84 dark theme. Zero external dependencies.
@@ -305,11 +305,11 @@ function createAppShell() {
 
   var wordmark = document.createElement('span');
   wordmark.id = 'dk-shell-wordmark';
-  wordmark.textContent = 'WIZARD';
+  wordmark.textContent = 'WDK';
 
   var tagline = document.createElement('span');
   tagline.id = 'dk-shell-tagline';
-  tagline.textContent = 'Wiz \u00b7 Data Workbench';
+  tagline.textContent = "Wizard's Data Engineering Kit";
 
   var headerSpacer = document.createElement('span');
   headerSpacer.id = 'dk-shell-header-spacer';
@@ -762,7 +762,7 @@ function createAppShell() {
  * Entry point — detects mode and initialises accordingly.
  * Called by main() in build.js when app-shell is present.
  */
-function initDataKit() {
+function initWDK() {
   if (isStandaloneMode()) {
     createAppShell();
   } else {

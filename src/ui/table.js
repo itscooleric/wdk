@@ -1,5 +1,5 @@
 /**
- * DataKit table renderer with virtual scrolling.
+ * WDK table renderer with virtual scrolling.
  * Renders a DataFrame into a sortable, scrollable HTML table.
  * Only renders visible rows + buffer for million-row performance.
  * Synthwave 84 dark theme. Zero external dependencies.

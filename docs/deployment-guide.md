@@ -1,47 +1,47 @@
-# Wiz Deployment Guide
+# WDK Deployment Guide
 
 ## Deployment Options
 
-Wiz is designed to work in heavily restricted environments. Choose the deployment method that matches your constraints.
+WDK is designed to work in heavily restricted environments. Choose the deployment method that matches your constraints.
 
 ### Option 1: Standalone HTML File (simplest)
 
-Open `dist/wiz.html` directly in a browser. Everything is inlined — no server, no network, no dependencies.
+Open `dist/wdk.html` directly in a browser. Everything is inlined — no server, no network, no dependencies.
 
 **Works in:** Any environment with a modern browser (Chrome, Edge, Firefox, Safari).
 
 **Limitations:** `file://` protocol blocks some APIs (File System Access, OPFS, Web Workers with ES modules). For full functionality, use Option 3.
 
-**Distribution:** Copy `wiz.html` to a USB drive, shared folder, or document library. 191 KB total.
+**Distribution:** Copy `wdk.html` to a USB drive, shared folder, or document library. 191 KB total.
 
 ### Option 2: Bookmarklet (inject into any page)
 
-1. Copy contents of `dist/wiz-bookmarklet.txt`
+1. Copy contents of `dist/wdk-bookmarklet.txt`
 2. Create a new bookmark in your browser
 3. Paste the contents as the bookmark URL
 4. Navigate to any page with data, click the bookmark
 
-Wiz injects as a floating panel with access to the page's DOM, network requests, and storage.
+WDK injects as a floating panel with access to the page's DOM, network requests, and storage.
 
 **Best for:** Extracting data from web applications (dashboards, admin panels, intranets).
 
 ### Option 3: localhost Server (full features)
 
-Serve Wiz from a local PowerShell HTTP server to unlock all browser APIs:
+Serve WDK from a local PowerShell HTTP server to unlock all browser APIs:
 
 ```powershell
-# wiz-serve.ps1 — minimal localhost server
+# wdk-serve.ps1 — minimal localhost server
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
 $listener = New-Object System.Net.HttpListener
 $listener.Prefixes.Add('http://localhost:8080/')
 $listener.Start()
-Write-Host "Wiz running at http://localhost:8080/"
-Start-Process "http://localhost:8080/wiz.html"
+Write-Host "WDK running at http://localhost:8080/"
+Start-Process "http://localhost:8080/wdk.html"
 
 while ($listener.IsListening) {
     $ctx = $listener.GetContext()
     $file = $ctx.Request.Url.LocalPath.TrimStart('/')
-    if (-not $file) { $file = 'wiz.html' }
+    if (-not $file) { $file = 'wdk.html' }
     $path = Join-Path $root $file
 
     if (Test-Path $path) {
@@ -69,17 +69,17 @@ while ($listener.IsListening) {
 
 ### Option 4: SharePoint — Script Editor Web Part (SP 2013/2016/2019)
 
-1. Upload `dist/wiz.js` to a SharePoint document library (e.g., `Site Assets`)
+1. Upload `dist/wdk.js` to a SharePoint document library (e.g., `Site Assets`)
 2. Edit a classic SharePoint page
 3. Add a **Script Editor Web Part**
 4. Paste:
    ```html
-   <div id="wiz-root"></div>
-   <script src="/sites/yoursite/SiteAssets/wiz.js"></script>
+   <div id="wdk-root"></div>
+   <script src="/sites/yoursite/SiteAssets/wdk.js"></script>
    ```
 5. Save the page
 
-Wiz runs in the SharePoint page context with same-origin access to the REST API. No app catalog, no SPFx toolchain, no admin approval needed (if Script Editor is enabled).
+WDK runs in the SharePoint page context with same-origin access to the REST API. No app catalog, no SPFx toolchain, no admin approval needed (if Script Editor is enabled).
 
 **Note:** Script Editor Web Part is disabled by default on SPO modern sites. Use SPFx (Option 5) for modern pages.
 
@@ -89,9 +89,9 @@ For modern SharePoint pages, deploy as an SPFx web part:
 
 1. **Build (once, on a dev machine with Node.js):**
    - Scaffold SPFx project with "No framework" template
-   - Import `wiz.js` as the web part's `render()` output
+   - Import `wdk.js` as the web part's `render()` output
    - Run `gulp bundle --ship && gulp package-solution --ship`
-   - Output: `sharepoint/solution/wiz.sppkg`
+   - Output: `sharepoint/solution/wdk.sppkg`
 
 2. **Deploy (on the SharePoint environment):**
    - Upload `.sppkg` to the App Catalog
@@ -118,14 +118,14 @@ For maximum control on on-premises SharePoint, deploy as a custom application pa
    <%@ Page Language="C#" MasterPageFile="~/_layouts/15/minimal.master"
      Inherits="Microsoft.SharePoint.WebPartPages.WebPartPage" %>
    <asp:Content ID="Main" ContentPlaceHolderID="PlaceHolderMain" runat="server">
-     <div id="wiz-root"></div>
-     <script src="/_layouts/15/wiz/wiz.js"></script>
+     <div id="wdk-root"></div>
+     <script src="/_layouts/15/wdk/wdk.js"></script>
    </asp:Content>
    ```
 
-2. Deploy to `_layouts/15/wiz/` on the SharePoint server (farm solution or manual copy)
+2. Deploy to `_layouts/15/wdk/` on the SharePoint server (farm solution or manual copy)
 
-3. Access at `https://sharepoint/_layouts/15/wiz/wiz.aspx`
+3. Access at `https://sharepoint/_layouts/15/wdk/wdk.aspx`
 
 **Advantages:** Full server-side API access, no App Catalog needed, works on SP 2013+.
 

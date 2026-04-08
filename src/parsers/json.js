@@ -1,5 +1,5 @@
 /**
- * DataKit JSON Parser
+ * WDK JSON Parser
  * Zero-dependency JSON parsing with error recovery.
  */
 
