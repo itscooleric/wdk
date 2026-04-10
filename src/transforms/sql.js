@@ -28,6 +28,35 @@ function execSQL(sql, tables) {
     rows = df._rows;
   }
 
+  // UNPIVOT — transform columns into rows
+  if (parsed.unpivot) {
+    var up = parsed.unpivot;
+    var unpivotIdxs = up.cols.map(function(c) {
+      var idx = headers.indexOf(c);
+      if (idx === -1) throw new Error('UNPIVOT: column "' + c + '" not found');
+      return idx;
+    });
+    var keepIdxs = [];
+    for (var hi = 0; hi < headers.length; hi++) {
+      if (unpivotIdxs.indexOf(hi) < 0) keepIdxs.push(hi);
+    }
+    var newHeaders = keepIdxs.map(function(i) { return headers[i]; });
+    newHeaders.push(up.nameCol);
+    newHeaders.push(up.valueCol);
+    var newRows = [];
+    for (var ri = 0; ri < rows.length; ri++) {
+      var baseRow = keepIdxs.map(function(i) { return rows[ri][i]; });
+      for (var ui = 0; ui < up.cols.length; ui++) {
+        var newRow = baseRow.slice();
+        newRow.push(up.cols[ui]);
+        newRow.push(rows[ri][unpivotIdxs[ui]]);
+        newRows.push(newRow);
+      }
+    }
+    headers = newHeaders;
+    rows = newRows;
+  }
+
   // WHERE
   if (parsed.where) {
     var whereFn = compileWhere(parsed.where, headers);
@@ -68,6 +97,25 @@ function execSQL(sql, tables) {
         outRows[i].push(col[i]);
       });
     }
+  }
+
+  // FILL_DOWN — post-process columns
+  var fillDownCols = parsed.columns.filter(function(c) { return c.type === 'fill_down'; });
+  if (fillDownCols.length > 0) {
+    fillDownCols.forEach(function(fd) {
+      var srcIdx = headers.indexOf(fd.col);
+      if (srcIdx === -1) throw new Error('FILL_DOWN: column "' + fd.col + '" not found');
+      // Add new column header and values
+      outHeaders.push(fd.alias);
+      var lastVal = null;
+      for (var i = 0; i < outRows.length; i++) {
+        var val = rows[i][srcIdx];
+        if (val != null && val !== '' && val !== 'null' && val !== 'NULL') {
+          lastVal = val;
+        }
+        outRows[i].push(lastVal);
+      }
+    });
   }
 
   // LIMIT
@@ -191,8 +239,28 @@ function parseSelect(sql) {
   // Optional table alias: FROM tbl AS a  or  FROM tbl a
   var fromAlias = null;
   if (peek() === 'AS') { next(); fromAlias = next().toLowerCase(); }
-  else if (peek() !== '' && ['WHERE','JOIN','INNER','LEFT','RIGHT','CROSS','GROUP','ORDER','LIMIT'].indexOf(peek()) < 0) {
+  else if (peek() !== '' && ['WHERE','JOIN','INNER','LEFT','RIGHT','CROSS','GROUP','ORDER','LIMIT','UNPIVOT'].indexOf(peek()) < 0) {
     fromAlias = next().toLowerCase();
+  }
+
+  // UNPIVOT(value_col FOR name_col IN (col1, col2, ...))
+  var unpivot = null;
+  if (peek() === 'UNPIVOT') {
+    next(); // consume UNPIVOT
+    expect('(');
+    var valueCol = next();
+    expect('FOR');
+    var nameCol = next();
+    expect('IN');
+    expect('(');
+    var unpivotCols = [];
+    do {
+      if (unpivotCols.length > 0 && peek() === ',') next();
+      unpivotCols.push(next());
+    } while (peek() === ',');
+    expect(')');
+    expect(')');
+    unpivot = { valueCol: valueCol, nameCol: nameCol, cols: unpivotCols };
   }
 
   // JOINs: [INNER|LEFT [OUTER]|RIGHT [OUTER]|CROSS] JOIN tbl [AS alias] ON left = right [AND ...]
@@ -267,7 +335,7 @@ function parseSelect(sql) {
     limit = parseInt(next(), 10);
   }
 
-  return { columns: columns, from: from, fromAlias: fromAlias, joins: joins, where: where, groupBy: groupBy, orderBy: orderBy, limit: limit };
+  return { columns: columns, from: from, fromAlias: fromAlias, unpivot: unpivot, joins: joins, where: where, groupBy: groupBy, orderBy: orderBy, limit: limit };
 
   function parseColumnExpr() {
     var tok = peek();
@@ -342,6 +410,17 @@ function parseSelect(sql) {
       var aggAlias = fn.toLowerCase() + '_' + arg.toLowerCase();
       if (peek() === 'AS') { next(); aggAlias = next(); }
       return { type: 'agg', func: fn.toLowerCase(), arg: arg, alias: aggAlias };
+    }
+
+    // FILL_DOWN(col)
+    if (tok === 'FILL_DOWN') {
+      next(); // consume FILL_DOWN
+      expect('(');
+      var fdCol = next();
+      expect(')');
+      var fdAlias = fdCol + '_filled';
+      if (peek() === 'AS') { next(); fdAlias = next(); }
+      return { type: 'fill_down', col: fdCol, alias: fdAlias };
     }
 
     // Star

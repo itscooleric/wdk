@@ -352,10 +352,14 @@ function createAppShell() {
   var colTypeContainer = document.createElement('div');
   colTypeContainer.id = 'dk-col-types';
 
+  var btnScanner = makeToolbarBtn('\u26a0', 'Scanner', 'File preflight scanner');
+
   toolbar.appendChild(btnImport);
   toolbar.appendChild(makeToolbarSep());
   toolbar.appendChild(btnExportCSV);
   toolbar.appendChild(btnExportJSON);
+  toolbar.appendChild(makeToolbarSep());
+  toolbar.appendChild(btnScanner);
   toolbar.appendChild(makeToolbarSep());
   toolbar.appendChild(btnClear);
   toolbar.appendChild(colTypeContainer);
@@ -454,8 +458,36 @@ function createAppShell() {
   dataView.appendChild(splitHandle);
   dataView.appendChild(bottomPanel);
 
+  // Scanner view (full-content, independent of data view)
+  var scannerView = document.createElement('div');
+  scannerView.id = 'dk-shell-scanner-view';
+  scannerView.style.cssText = 'flex:1;overflow:auto;display:none;';
+
+  var scannerInitialized = false;
+  btnScanner.addEventListener('click', function () {
+    var showing = scannerView.style.display !== 'none';
+    if (showing) {
+      scannerView.style.display = 'none';
+      welcomeView.style.display = '';
+      dataView.style.display = '';
+      btnScanner.style.borderColor = DK_SHELL_THEME.border;
+      btnScanner.style.color = DK_SHELL_THEME.text;
+    } else {
+      welcomeView.style.display = 'none';
+      dataView.style.display = 'none';
+      scannerView.style.display = 'flex';
+      btnScanner.style.borderColor = DK_SHELL_THEME.cyan;
+      btnScanner.style.color = DK_SHELL_THEME.cyan;
+      if (!scannerInitialized && typeof createScannerPanel === 'function') {
+        createScannerPanel(scannerView);
+        scannerInitialized = true;
+      }
+    }
+  });
+
   content.appendChild(welcomeView);
   content.appendChild(dataView);
+  content.appendChild(scannerView);
 
   // Init build configurator (doesn't need data)
   if (typeof createBuildConfig === 'function') {

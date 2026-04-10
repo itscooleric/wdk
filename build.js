@@ -41,6 +41,7 @@ var SOURCE_FILES = [
   'ui/notebook.js',
   'ui/build-config.js',
   'ui/app-shell.js',
+  'scanner/preflight-scanner.js',
   'sharepoint/sp-auth.js',
   'sharepoint/sp-compat.js',
   'sharepoint/sp-errors.js',

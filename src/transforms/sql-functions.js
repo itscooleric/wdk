@@ -140,6 +140,38 @@ var SQL_FUNCTIONS = {
     return 'text';
   },
 
+  // Advanced string functions
+  split: function(args) {
+    // SPLIT(string, delimiter, index)
+    // Returns the nth element (0-based) after splitting string by delimiter
+    var s = String(args[0] == null ? '' : args[0]);
+    var delim = String(args[1] == null ? ',' : args[1]);
+    var idx = Number(args[2]) || 0;
+    var parts = s.split(delim);
+    return idx >= 0 && idx < parts.length ? parts[idx] : null;
+  },
+  regex_extract: function(args) {
+    // REGEX_EXTRACT(string, pattern, group?)
+    // Returns the first match (or capture group) of pattern in string
+    var s = String(args[0] == null ? '' : args[0]);
+    var pattern = String(args[1] == null ? '' : args[1]);
+    var group = Number(args[2]) || 0;
+    try {
+      var m = s.match(new RegExp(pattern));
+      if (!m) return null;
+      return group < m.length ? m[group] : null;
+    } catch(e) { return null; }
+  },
+  regex_replace: function(args) {
+    // REGEX_REPLACE(string, pattern, replacement)
+    var s = String(args[0] == null ? '' : args[0]);
+    var pattern = String(args[1] == null ? '' : args[1]);
+    var rep = String(args[2] == null ? '' : args[2]);
+    try {
+      return s.replace(new RegExp(pattern, 'g'), rep);
+    } catch(e) { return s; }
+  },
+
   // Conditional
   iif: function (args) {
     return args[0] ? args[1] : (args[2] != null ? args[2] : null);

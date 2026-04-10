@@ -21,6 +21,66 @@ var DK_TABLE_THEME = {
 var DK_ROW_HEIGHT = 24;
 var DK_BUFFER_ROWS = 20;
 
+/**
+ * Parse a filter expression and return a predicate function.
+ * Supports: >, <, >=, <=, =, != (numeric), ~ (regex), ! (NOT contains),
+ * or plain substring (case-insensitive).
+ */
+function parseFilterExpr(expr) {
+  if (!expr || expr === '') return null;
+
+  // Regex match: ~pattern
+  if (expr.charAt(0) === '~') {
+    var pattern = expr.substring(1);
+    try {
+      var re = new RegExp(pattern, 'i');
+      return function (val) {
+        return re.test(val === null || val === undefined ? '' : String(val));
+      };
+    } catch (e) {
+      return null; // invalid regex — treat as no filter
+    }
+  }
+
+  // NOT contains: !text
+  if (expr.charAt(0) === '!' && expr.charAt(1) !== '=') {
+    var neg = expr.substring(1).toLowerCase();
+    return function (val) {
+      var s = val === null || val === undefined ? '' : String(val).toLowerCase();
+      return s.indexOf(neg) === -1;
+    };
+  }
+
+  // Numeric comparisons: >=, <=, !=, >, <, =
+  var numMatch = expr.match(/^(>=|<=|!=|>|<|=)\s*(.+)$/);
+  if (numMatch) {
+    var op = numMatch[1];
+    var num = parseFloat(numMatch[2]);
+    if (!isNaN(num)) {
+      return function (val) {
+        var n = parseFloat(val);
+        if (isNaN(n)) return false;
+        switch (op) {
+          case '>': return n > num;
+          case '<': return n < num;
+          case '>=': return n >= num;
+          case '<=': return n <= num;
+          case '=': return n === num;
+          case '!=': return n !== num;
+          default: return true;
+        }
+      };
+    }
+  }
+
+  // Default: case-insensitive substring
+  var lower = expr.toLowerCase();
+  return function (val) {
+    var s = val === null || val === undefined ? '' : String(val).toLowerCase();
+    return s.indexOf(lower) !== -1;
+  };
+}
+
 function injectTableStyles() {
   if (document.getElementById('dk-table-styles')) return;
   var style = document.createElement('style');
@@ -81,6 +141,35 @@ function injectTableStyles() {
     '  font-family: inherit; letter-spacing: 0.5px;',
     '}',
     '.dk-copy-btn:hover { color: ' + DK_TABLE_THEME.cyan + '; border-color: ' + DK_TABLE_THEME.cyan + '; }',
+    '.dk-filter-row { background: #0d0d20; }',
+    '.dk-filter-row th {',
+    '  position: sticky; top: 28px; z-index: 2;',
+    '  background: #0d0d20;',
+    '  padding: 3px 4px; border-bottom: 1px solid ' + DK_TABLE_THEME.border + ';',
+    '  cursor: default; text-transform: none; letter-spacing: 0;',
+    '  font-weight: normal;',
+    '}',
+    '.dk-filter-input {',
+    '  width: 100%; box-sizing: border-box;',
+    '  background: #12122a; color: #e0e0f0;',
+    '  border: 1px solid #2a2a4a; border-radius: 2px;',
+    '  padding: 2px 4px; font-size: 11px;',
+    '  font-family: "SF Mono", "Fira Code", "Consolas", monospace;',
+    '  outline: none;',
+    '}',
+    '.dk-filter-input::placeholder { color: #555577; }',
+    '.dk-filter-input.dk-filter-active {',
+    '  border-color: #00e5ff;',
+    '  box-shadow: 0 0 4px rgba(0,229,255,0.3);',
+    '}',
+    '.dk-clear-filters {',
+    '  position: absolute; top: 4px; right: 80px; z-index: 4;',
+    '  background: transparent; color: ' + DK_TABLE_THEME.textDim + ';',
+    '  border: 1px solid ' + DK_TABLE_THEME.border + '; border-radius: 2px;',
+    '  padding: 2px 8px; font-size: 10px; cursor: pointer;',
+    '  font-family: inherit; letter-spacing: 0.5px; display: none;',
+    '}',
+    '.dk-clear-filters:hover { color: ' + DK_TABLE_THEME.pink + '; border-color: ' + DK_TABLE_THEME.pink + '; }',
   ].join('\n');
   document.head.appendChild(style);
 }
@@ -98,12 +187,14 @@ function renderTable(container, df, onSort) {
 
   var sortCol = null;
   var sortAsc = true;
+  var filterState = {};   // { colName: inputValue }
+  var filterInputs = {};  // { colName: HTMLInputElement } — survives re-render
 
   function render(dt) {
     container.innerHTML = '';
 
     var headers = dt._headers;
-    var rows = dt._rows;
+    var allRows = dt._rows;
 
     if (!headers || headers.length === 0) {
       var empty = document.createElement('div');
@@ -113,7 +204,29 @@ function renderTable(container, df, onSort) {
       return;
     }
 
-    var totalRows = rows.length;
+    var totalRowCount = allRows.length;
+
+    // --- Filtering ---
+    var filteredRows = allRows;
+    var activeFilterCount = 0;
+
+    function applyFilters() {
+      filteredRows = allRows;
+      activeFilterCount = 0;
+      for (var ci = 0; ci < headers.length; ci++) {
+        var expr = filterState[headers[ci]];
+        if (!expr) continue;
+        var pred = parseFilterExpr(expr);
+        if (!pred) continue;
+        activeFilterCount++;
+        var colIdx = ci;
+        filteredRows = filteredRows.filter(function (row) {
+          return pred(row[colIdx]);
+        });
+      }
+    }
+
+    applyFilters();
 
     var wrap = document.createElement('div');
     wrap.className = 'dk-table-wrap';
@@ -157,6 +270,56 @@ function renderTable(container, df, onSort) {
     });
 
     thead.appendChild(headRow);
+
+    // Filter row
+    var filterRow = document.createElement('tr');
+    filterRow.className = 'dk-filter-row';
+
+    var filterNumTh = document.createElement('th');
+    filterNumTh.style.cursor = 'default';
+    filterRow.appendChild(filterNumTh);
+
+    var debounceTimer = null;
+
+    headers.forEach(function (colName) {
+      var th = document.createElement('th');
+      var input = document.createElement('input');
+      input.type = 'text';
+      input.className = 'dk-filter-input';
+      input.placeholder = 'filter...';
+
+      // Restore previous filter value
+      if (filterState[colName]) {
+        input.value = filterState[colName];
+        input.classList.add('dk-filter-active');
+      }
+
+      filterInputs[colName] = input;
+
+      input.addEventListener('input', function () {
+        var val = input.value;
+        filterState[colName] = val;
+
+        if (val) {
+          input.classList.add('dk-filter-active');
+        } else {
+          input.classList.remove('dk-filter-active');
+        }
+
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(function () {
+          rebuildFiltered();
+        }, 200);
+      });
+
+      // Stop click from propagating to sort handler
+      input.addEventListener('click', function (e) { e.stopPropagation(); });
+
+      th.appendChild(input);
+      filterRow.appendChild(th);
+    });
+
+    thead.appendChild(filterRow);
     table.appendChild(thead);
 
     // Body — virtual scroll
@@ -183,12 +346,39 @@ function renderTable(container, df, onSort) {
     // Row count badge
     var badge = document.createElement('div');
     badge.className = 'dk-row-count';
-    badge.textContent = totalRows.toLocaleString() + ' rows';
+
+    function updateBadge() {
+      if (activeFilterCount > 0) {
+        badge.textContent = 'Showing ' + filteredRows.length.toLocaleString() + ' of ' + totalRowCount.toLocaleString() + ' rows';
+      } else {
+        badge.textContent = totalRowCount.toLocaleString() + ' rows';
+      }
+    }
+
+    updateBadge();
+
+    // Clear all filters button
+    var clearBtn = document.createElement('button');
+    clearBtn.className = 'dk-clear-filters';
+    clearBtn.textContent = 'Clear filters';
+    clearBtn.style.display = activeFilterCount > 0 ? 'block' : 'none';
+    clearBtn.addEventListener('click', function () {
+      filterState = {};
+      for (var key in filterInputs) {
+        if (filterInputs.hasOwnProperty(key)) {
+          filterInputs[key].value = '';
+          filterInputs[key].classList.remove('dk-filter-active');
+        }
+      }
+      rebuildFiltered();
+    });
 
     var lastStart = -1;
     var lastEnd = -1;
 
     function renderVisibleRows() {
+      var rows = filteredRows;
+      var totalRows = rows.length;
       var scrollTop = wrap.scrollTop;
       var viewHeight = wrap.clientHeight;
       var headerHeight = thead.offsetHeight || 30;
@@ -232,12 +422,22 @@ function renderTable(container, df, onSort) {
       tbody.appendChild(bottomSpacer);
     }
 
+    function rebuildFiltered() {
+      applyFilters();
+      updateBadge();
+      clearBtn.style.display = activeFilterCount > 0 ? 'block' : 'none';
+      lastStart = -1;
+      lastEnd = -1;
+      renderVisibleRows();
+    }
+
     // Copy to clipboard button (TSV for Excel paste)
     var copyBtn = document.createElement('button');
     copyBtn.className = 'dk-copy-btn';
     copyBtn.textContent = 'Copy TSV';
     copyBtn.title = 'Copy table as tab-separated values (paste into Excel)';
     copyBtn.addEventListener('click', function () {
+      var rows = filteredRows;
       var lines = [headers.join('\t')];
       for (var r = 0; r < rows.length; r++) {
         lines.push(rows[r].map(function (v) { return v == null ? '' : String(v); }).join('\t'));
@@ -259,6 +459,7 @@ function renderTable(container, df, onSort) {
     container.appendChild(wrap);
     container.style.position = 'relative';
     container.appendChild(badge);
+    container.appendChild(clearBtn);
     container.appendChild(copyBtn);
 
     // Initial render
@@ -282,6 +483,9 @@ function renderTable(container, df, onSort) {
   return {
     refresh: function (newDataFrame) {
       render(newDataFrame);
+    },
+    getFilterState: function () {
+      return JSON.parse(JSON.stringify(filterState));
     },
   };
 }
