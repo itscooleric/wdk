@@ -197,6 +197,17 @@ function injectShellStyles() {
     '  z-index: 9999;',
     '}',
     '#dk-shell-toast.dk-visible { opacity: 1; }',
+
+    /* Focus-visible accessibility */
+    '*:focus-visible {',
+    '  outline: 2px solid #00e5ff;',
+    '  outline-offset: 2px;',
+    '}',
+    '.dk-toolbar-btn:focus-visible {',
+    '  outline: 2px solid #00e5ff;',
+    '  outline-offset: 1px;',
+    '  box-shadow: 0 0 8px rgba(0, 229, 255, 0.25);',
+    '}',
   ].join('\n');
   document.head.appendChild(style);
 }
@@ -302,6 +313,7 @@ function createAppShell() {
   // Header
   var header = document.createElement('div');
   header.id = 'dk-shell-header';
+  header.setAttribute('role', 'banner');
 
   var wordmark = document.createElement('span');
   wordmark.id = 'dk-shell-wordmark';
@@ -321,11 +333,14 @@ function createAppShell() {
   // Toolbar
   var toolbar = document.createElement('div');
   toolbar.id = 'dk-shell-toolbar';
+  toolbar.setAttribute('role', 'toolbar');
+  toolbar.setAttribute('aria-label', 'Data tools');
 
   function makeToolbarBtn(icon, label, title, shortcut) {
     var btn = document.createElement('button');
     btn.className = 'dk-toolbar-btn';
     btn.title = title + (shortcut ? '  (' + shortcut + ')' : '');
+    btn.setAttribute('aria-label', title + (shortcut ? ' (' + shortcut + ')' : ''));
     var iconSpan = document.createElement('span');
     iconSpan.className = 'dk-toolbar-btn-icon';
     iconSpan.textContent = icon;
@@ -364,9 +379,28 @@ function createAppShell() {
   toolbar.appendChild(btnClear);
   toolbar.appendChild(colTypeContainer);
 
+  // Keyboard navigation for toolbar: arrow keys move between buttons
+  toolbar.addEventListener('keydown', function (e) {
+    if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+    var btns = toolbar.querySelectorAll('.dk-toolbar-btn');
+    var idx = -1;
+    for (var i = 0; i < btns.length; i++) {
+      if (btns[i] === document.activeElement) { idx = i; break; }
+    }
+    if (idx === -1) return;
+    e.preventDefault();
+    if (e.key === 'ArrowRight') {
+      idx = (idx + 1) % btns.length;
+    } else {
+      idx = (idx - 1 + btns.length) % btns.length;
+    }
+    btns[idx].focus();
+  });
+
   // Content area
   var content = document.createElement('div');
   content.id = 'dk-shell-content';
+  content.setAttribute('role', 'main');
 
   // Welcome / import view
   var welcomeView = document.createElement('div');
@@ -402,35 +436,49 @@ function createAppShell() {
 
   var replPane = document.createElement('div');
   replPane.id = 'dk-shell-repl-pane';
+  replPane.setAttribute('role', 'tabpanel');
+  replPane.setAttribute('aria-label', 'REPL');
 
   var pivotPane = document.createElement('div');
   pivotPane.id = 'dk-shell-pivot-pane';
+  pivotPane.setAttribute('role', 'tabpanel');
+  pivotPane.setAttribute('aria-label', 'Pivot');
   pivotPane.style.cssText = 'flex:1;overflow:hidden;display:none;flex-direction:column;';
 
   var notebookPane = document.createElement('div');
   notebookPane.id = 'dk-shell-notebook-pane';
+  notebookPane.setAttribute('role', 'tabpanel');
+  notebookPane.setAttribute('aria-label', 'Notebook');
   notebookPane.style.cssText = 'flex:1;overflow:hidden;display:none;flex-direction:column;';
 
   var buildPane = document.createElement('div');
   buildPane.id = 'dk-shell-build-pane';
+  buildPane.setAttribute('role', 'tabpanel');
+  buildPane.setAttribute('aria-label', 'Build');
   buildPane.style.cssText = 'flex:1;overflow:hidden;display:none;flex-direction:column;';
 
   // Bottom panel tab bar
   var bottomTabBar = document.createElement('div');
   bottomTabBar.style.cssText = 'display:flex;gap:0;background:#0a0a1a;border-bottom:1px solid ' + DK_SHELL_THEME.border + ';flex-shrink:0;';
+  bottomTabBar.setAttribute('role', 'tablist');
+  bottomTabBar.setAttribute('aria-label', 'Bottom panels');
   var bottomPanes = { repl: replPane, pivot: pivotPane, notebook: notebookPane, build: buildPane };
   function makeBottomTab(label, target) {
     var btn = document.createElement('button');
     btn.textContent = label;
+    btn.setAttribute('role', 'tab');
+    btn.setAttribute('aria-selected', 'false');
     btn.style.cssText = 'background:transparent;color:' + DK_SHELL_THEME.textDim + ';border:none;border-bottom:2px solid transparent;padding:4px 12px;cursor:pointer;font-family:inherit;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;';
     btn.addEventListener('click', function () {
       Object.keys(bottomPanes).forEach(function (k) { bottomPanes[k].style.display = k === target ? 'flex' : 'none'; });
       bottomTabBar.querySelectorAll('button').forEach(function (b) {
         b.style.color = DK_SHELL_THEME.textDim;
         b.style.borderBottomColor = 'transparent';
+        b.setAttribute('aria-selected', 'false');
       });
       btn.style.color = DK_SHELL_THEME.cyan;
       btn.style.borderBottomColor = DK_SHELL_THEME.cyan;
+      btn.setAttribute('aria-selected', 'true');
     });
     return btn;
   }
@@ -439,6 +487,7 @@ function createAppShell() {
   var notebookTab = makeBottomTab('Notebook', 'notebook');
   replTab.style.color = DK_SHELL_THEME.cyan;
   replTab.style.borderBottomColor = DK_SHELL_THEME.cyan;
+  replTab.setAttribute('aria-selected', 'true');
   var buildTab = makeBottomTab('Build', 'build');
   bottomTabBar.appendChild(replTab);
   bottomTabBar.appendChild(pivotTab);
@@ -497,6 +546,7 @@ function createAppShell() {
   // Status bar
   var statusBar = document.createElement('div');
   statusBar.id = 'dk-shell-status';
+  statusBar.setAttribute('role', 'contentinfo');
 
   function makeStatusItem(id, label) {
     var item = document.createElement('span');

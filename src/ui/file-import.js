@@ -135,6 +135,9 @@ function createFileImport(container, onData) {
 
   var zone = document.createElement('div');
   zone.className = 'dk-import-zone';
+  zone.setAttribute('role', 'button');
+  zone.setAttribute('tabindex', '0');
+  zone.setAttribute('aria-label', 'Drop files here or click to browse');
 
   var icon = document.createElement('div');
   icon.className = 'dk-import-icon';
@@ -267,6 +270,13 @@ function createFileImport(container, onData) {
 
   zone.addEventListener('click', function () {
     fileInput.click();
+  });
+
+  zone.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      fileInput.click();
+    }
   });
 
   fileInput.addEventListener('change', function () {

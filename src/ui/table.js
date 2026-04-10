@@ -170,6 +170,10 @@ function injectTableStyles() {
     '  font-family: inherit; letter-spacing: 0.5px; display: none;',
     '}',
     '.dk-clear-filters:hover { color: ' + DK_TABLE_THEME.pink + '; border-color: ' + DK_TABLE_THEME.pink + '; }',
+    '.dk-table td:focus-visible, .dk-table th:focus-visible {',
+    '  outline: 2px solid #00e5ff;',
+    '  outline-offset: 2px;',
+    '}',
   ].join('\n');
   document.head.appendChild(style);
 }
@@ -234,18 +238,28 @@ function renderTable(container, df, onSort) {
 
     var table = document.createElement('table');
     table.className = 'dk-table';
+    table.setAttribute('role', 'grid');
 
     // Header row
     var thead = document.createElement('thead');
     var headRow = document.createElement('tr');
+    headRow.setAttribute('role', 'row');
 
     var thNum = document.createElement('th');
     thNum.textContent = '#';
     thNum.style.cursor = 'default';
+    thNum.setAttribute('role', 'columnheader');
     headRow.appendChild(thNum);
 
     headers.forEach(function (colName) {
       var th = document.createElement('th');
+      th.setAttribute('role', 'columnheader');
+      th.setAttribute('tabindex', '0');
+      if (sortCol === colName) {
+        th.setAttribute('aria-sort', sortAsc ? 'ascending' : 'descending');
+      } else {
+        th.setAttribute('aria-sort', 'none');
+      }
       var label = document.createTextNode(colName);
       th.appendChild(label);
 
@@ -256,7 +270,7 @@ function renderTable(container, df, onSort) {
         th.appendChild(arrow);
       }
 
-      th.addEventListener('click', function () {
+      function doSort() {
         if (sortCol === colName) {
           sortAsc = !sortAsc;
         } else {
@@ -264,6 +278,14 @@ function renderTable(container, df, onSort) {
           sortAsc = true;
         }
         if (onSort) onSort(colName, sortAsc);
+      }
+
+      th.addEventListener('click', doSort);
+      th.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          doSort();
+        }
       });
 
       headRow.appendChild(th);
@@ -274,6 +296,7 @@ function renderTable(container, df, onSort) {
     // Filter row
     var filterRow = document.createElement('tr');
     filterRow.className = 'dk-filter-row';
+    filterRow.setAttribute('role', 'row');
 
     var filterNumTh = document.createElement('th');
     filterNumTh.style.cursor = 'default';
@@ -287,6 +310,7 @@ function renderTable(container, df, onSort) {
       input.type = 'text';
       input.className = 'dk-filter-input';
       input.placeholder = 'filter...';
+      input.setAttribute('aria-label', 'Filter ' + colName);
 
       // Restore previous filter value
       if (filterState[colName]) {
@@ -402,14 +426,18 @@ function renderTable(container, df, onSort) {
       for (var i = start; i < end; i++) {
         var row = rows[i];
         var tr = document.createElement('tr');
+        tr.setAttribute('role', 'row');
 
         var tdNum = document.createElement('td');
         tdNum.className = 'dk-row-num';
+        tdNum.setAttribute('role', 'gridcell');
         tdNum.textContent = String(i + 1);
         tr.appendChild(tdNum);
 
         for (var c = 0; c < headers.length; c++) {
           var td = document.createElement('td');
+          td.setAttribute('role', 'gridcell');
+          td.setAttribute('tabindex', '-1');
           var val = row[c];
           td.textContent = val === null || val === undefined ? '' : String(val);
           td.title = td.textContent;
@@ -453,6 +481,30 @@ function renderTable(container, df, onSort) {
           copyBtn.textContent = 'Copied!';
           setTimeout(function () { copyBtn.textContent = 'Copy TSV'; }, 1500);
         });
+      }
+    });
+
+    // Keyboard navigation: arrow keys move between cells
+    table.addEventListener('keydown', function (e) {
+      if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown' && e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+      var cell = document.activeElement;
+      if (!cell || (cell.tagName !== 'TD' && cell.tagName !== 'TH')) return;
+      var tr = cell.parentElement;
+      if (!tr) return;
+      var cellIdx = Array.prototype.indexOf.call(tr.children, cell);
+      e.preventDefault();
+      if (e.key === 'ArrowLeft' && cellIdx > 0) {
+        var prev = tr.children[cellIdx - 1];
+        if (prev) { prev.setAttribute('tabindex', '0'); prev.focus(); cell.setAttribute('tabindex', '-1'); }
+      } else if (e.key === 'ArrowRight' && cellIdx < tr.children.length - 1) {
+        var next = tr.children[cellIdx + 1];
+        if (next) { next.setAttribute('tabindex', '0'); next.focus(); cell.setAttribute('tabindex', '-1'); }
+      } else if (e.key === 'ArrowUp') {
+        var prevRow = tr.previousElementSibling;
+        if (prevRow && prevRow.children[cellIdx]) { prevRow.children[cellIdx].setAttribute('tabindex', '0'); prevRow.children[cellIdx].focus(); cell.setAttribute('tabindex', '-1'); }
+      } else if (e.key === 'ArrowDown') {
+        var nextRow = tr.nextElementSibling;
+        if (nextRow && nextRow.children[cellIdx]) { nextRow.children[cellIdx].setAttribute('tabindex', '0'); nextRow.children[cellIdx].focus(); cell.setAttribute('tabindex', '-1'); }
       }
     });
 

@@ -19,6 +19,9 @@ function createREPL(container, getContext) {
   ].join(';');
   textarea.placeholder = '// Script runs with: df (alias: data), rows, headers, meta, window\n// console.log/warn/error output appears below\n';
   textarea.spellcheck = false;
+  textarea.setAttribute('role', 'textbox');
+  textarea.setAttribute('aria-label', 'SQL query input');
+  textarea.setAttribute('aria-multiline', 'true');
 
   // Tab key inserts spaces instead of changing focus
   textarea.addEventListener('keydown', function (e) {
@@ -61,6 +64,9 @@ function createREPL(container, getContext) {
 
   // Output panel
   var output = document.createElement('pre');
+  output.setAttribute('role', 'log');
+  output.setAttribute('aria-live', 'polite');
+  output.setAttribute('aria-label', 'Script output');
   output.style.cssText = [
     'flex:1;overflow:auto;padding:10px;margin:0;min-height:80px',
     'background:#0a0a1a;color:#c0c0e0;border:1px solid #2a2a4e;border-radius:4px',
