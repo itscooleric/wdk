@@ -846,7 +846,8 @@ function createAppShell() {
  */
 function initWDK() {
   if (isStandaloneMode()) {
-    createAppShell();
+    var app = createAppShell();
+    if (app) { window.WDK = app; }
   } else {
     // Bookmarklet / injected mode — fall back to floating panel
     if (typeof createPanel === 'function') {

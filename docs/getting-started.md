@@ -43,6 +43,8 @@ Click the file picker button in the Data tab and select your file.
 
 Once loaded, WDK displays a scrollable table of your data with column headers detected automatically.
 
+![WDK table view with employee dataset loaded](screenshots/wdk-screenshot-table.png)
+
 ## Step 4: Explore your data
 
 After loading a file, the **Data tab** shows your table. You can:
@@ -99,6 +101,8 @@ After running a query, click **Export** to save the result:
 
 ## Step 7: Next steps
 
+![WDK pivot view — salary sum by department](screenshots/wdk-screenshot-pivot.png)
+
 | What you want to do | Where to go |
 |---------------------|-------------|
 | Pivot / aggregate data | **Pivot tab** — pick group columns and aggregate functions |
@@ -107,6 +111,8 @@ After running a query, click **Export** to save the result:
 | Scan a file for PII or risks | **Scanner tab** |
 | Connect to SharePoint lists | **SharePoint tab** — see [SharePoint Integration Guide](sharepoint-guide.md) |
 | Deploy to a team | [Deployment Guide](deployment-guide.md) |
+
+![WDK build configurator — select build tier for your deployment](screenshots/wdk-screenshot-build.png)
 
 ## Common questions
 

@@ -83,6 +83,8 @@ var csv = [headers.join(',')]
 console.log(csv);
 ```
 
+![WDK REPL tab — department aggregation output](screenshots/wdk-screenshot-repl.png)
+
 ### Keyboard shortcuts
 
 | Shortcut | Action |
@@ -183,6 +185,8 @@ data.forEach(r => {
 });
 console.log(lines.join('\n'));
 ```
+
+![WDK notebook view — JS and SQL cells with inline results](screenshots/wdk-screenshot-notebook.png)
 
 ### Tips
 

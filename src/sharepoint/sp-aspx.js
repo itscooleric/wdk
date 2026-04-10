@@ -80,8 +80,8 @@ export function aspxGetTemplate(options) {
   lines.push('    <!-- Inline WDK bundle -->');
   lines.push('    <script type="text/javascript">');
   lines.push('        // Paste the contents of dist/wiz.js here');
-  lines.push('        // Or reference as: <script src="/_layouts/15/WDK/wiz.js"></' + 'script>');
-  lines.push('    </script>');
+  lines.push('        // Or reference as: <script src="/_layouts/15/WDK/wiz.js"><\/' + 'script>');
+  lines.push('    <\/' + 'script>');
   lines.push('');
 
   if (includeCodeBehind) {
@@ -98,7 +98,7 @@ export function aspxGetTemplate(options) {
     lines.push('            window.__wdkSiteUrl = siteUrl;');
     lines.push('            window.__wdkUserName = userName;');
     lines.push('        })();');
-    lines.push('    </script>');
+    lines.push('    <\/' + 'script>');
     lines.push('');
   }
 

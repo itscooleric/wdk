@@ -161,6 +161,9 @@ function buildMain() {
 }
 
 function buildHTML(jsContent) {
+  // Escape any </script> sequences in the JS content to prevent premature script tag closure
+  var safeJS = jsContent.replace(/<\/script>/gi, '<\\/script>');
+  jsContent = safeJS;
   return [
     '<!DOCTYPE html>',
     '<html lang="en">',
