@@ -198,6 +198,9 @@ function injectShellStyles() {
     '}',
     '#dk-shell-toast.dk-visible { opacity: 1; }',
 
+    /* Sheet tabs */
+    '#dk-shell-sheet-tabs button:hover { color: ' + DK_SHELL_THEME.cyan + '; }',
+
     /* Focus-visible accessibility */
     '*:focus-visible {',
     '  outline: 2px solid #00e5ff;',
@@ -285,6 +288,8 @@ function createAppShell() {
 
   var currentDf = null;
   var currentFilename = null;
+  var currentSheets = null;
+  var currentSheetIndex = 0;
   var replInstance = null;
   var pivotInstance = null;
   var notebookInstance = null;
@@ -428,6 +433,12 @@ function createAppShell() {
   var dataView = document.createElement('div');
   dataView.id = 'dk-shell-data-view';
 
+  var sheetTabBar = document.createElement('div');
+  sheetTabBar.id = 'dk-shell-sheet-tabs';
+  sheetTabBar.style.cssText = 'display:none;gap:0;background:#0a0a1a;border-bottom:1px solid ' + DK_SHELL_THEME.border + ';flex-shrink:0;overflow-x:auto;white-space:nowrap;';
+  sheetTabBar.setAttribute('role', 'tablist');
+  sheetTabBar.setAttribute('aria-label', 'Spreadsheet sheets');
+
   var tablePane = document.createElement('div');
   tablePane.id = 'dk-shell-table-pane';
 
@@ -503,6 +514,7 @@ function createAppShell() {
   bottomPanel.appendChild(notebookPane);
   bottomPanel.appendChild(buildPane);
 
+  dataView.appendChild(sheetTabBar);
   dataView.appendChild(tablePane);
   dataView.appendChild(splitHandle);
   dataView.appendChild(bottomPanel);
@@ -630,9 +642,47 @@ function createAppShell() {
 
   // ─── Data loaded callback ─────────────────────────────────────────
 
+  function renderSheetTabs() {
+    sheetTabBar.innerHTML = '';
+    if (!currentSheets || currentSheets.length <= 1) {
+      sheetTabBar.style.display = 'none';
+      return;
+    }
+    sheetTabBar.style.display = 'flex';
+    currentSheets.forEach(function (sheet, idx) {
+      var btn = document.createElement('button');
+      btn.textContent = sheet.name;
+      btn.setAttribute('role', 'tab');
+      btn.setAttribute('aria-selected', idx === currentSheetIndex ? 'true' : 'false');
+      btn.style.cssText = 'background:transparent;border:none;border-bottom:2px solid transparent;padding:5px 14px;cursor:pointer;font-family:inherit;font-size:11px;letter-spacing:0.3px;color:' + (idx === currentSheetIndex ? DK_SHELL_THEME.cyan : DK_SHELL_THEME.textDim) + ';' + (idx === currentSheetIndex ? 'border-bottom-color:' + DK_SHELL_THEME.cyan + ';' : '');
+      btn.addEventListener('click', function () {
+        currentSheetIndex = idx;
+        var s = currentSheets[idx];
+        var dt = new DataFrame(s.headers, s.rows);
+        dt._xlsxSheets = currentSheets;
+        currentDf = dt;
+        tablePane.innerHTML = '';
+        if (typeof renderTable === 'function') renderTable(tablePane, dt);
+        updateColTypeBadges(dt);
+        var rows = dt._rows || [];
+        var headers = dt._headers || [];
+        rowsItem.val.textContent = rows.length.toLocaleString();
+        colsItem.val.textContent = headers.length.toLocaleString();
+        sizeItem.val.textContent = formatBytes(JSON.stringify(rows).length);
+        renderSheetTabs();
+      });
+      sheetTabBar.appendChild(btn);
+    });
+  }
+
   function onDataLoaded(table, filename) {
     currentDf = table;
     currentFilename = filename || 'data';
+
+    // Track XLSX sheets
+    currentSheets = table._xlsxSheets || null;
+    currentSheetIndex = 0;
+    renderSheetTabs();
 
     // Switch views
     welcomeView.style.display = 'none';
@@ -748,7 +798,11 @@ function createAppShell() {
   function clearData() {
     currentDf = null;
     currentFilename = null;
+    currentSheets = null;
+    currentSheetIndex = 0;
     replInstance = null;
+    sheetTabBar.style.display = 'none';
+    sheetTabBar.innerHTML = '';
 
     dataView.classList.remove('dk-active');
     welcomeView.style.display = '';
@@ -788,15 +842,15 @@ function createAppShell() {
     e.preventDefault();
     splitDragging = true;
     splitStartY = e.clientY;
-    splitStartReplH = replPane.offsetHeight;
+    splitStartReplH = bottomPanel.offsetHeight;
   });
 
   document.addEventListener('mousemove', function (e) {
     if (!splitDragging) return;
     e.preventDefault();
-    var delta = splitStartY - e.clientY; // drag up = bigger repl
+    var delta = splitStartY - e.clientY; // drag up = bigger panel
     var newH = Math.max(80, Math.min(splitStartReplH + delta, window.innerHeight - 200));
-    replPane.style.height = newH + 'px';
+    bottomPanel.style.height = newH + 'px';
   });
 
   document.addEventListener('mouseup', function () {

@@ -199,6 +199,8 @@ function createFileImport(container, onData) {
         }
         parseXLSX(binReader.result).then(function (result) {
           var dt = new DataFrame(result.headers, result.rows);
+          dt._xlsxSheets = result.sheets;
+          dt._xlsxBuffer = binReader.result;
           onData(dt, file.name);
         }).catch(function (err) {
           showError('XLSX parse error: ' + err.message);

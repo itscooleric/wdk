@@ -228,6 +228,26 @@ function renderTable(container, df, onSort) {
           return pred(row[colIdx]);
         });
       }
+      // Apply sort after filtering
+      if (sortCol !== null) {
+        var si = headers.indexOf(sortCol);
+        if (si >= 0) {
+          var asc = sortAsc;
+          filteredRows = filteredRows.slice().sort(function (a, b) {
+            var va = a[si], vb = b[si];
+            if (va == null) va = '';
+            if (vb == null) vb = '';
+            var na = parseFloat(va), nb = parseFloat(vb);
+            var cmp;
+            if (!isNaN(na) && !isNaN(nb)) {
+              cmp = na - nb;
+            } else {
+              cmp = String(va).localeCompare(String(vb));
+            }
+            return asc ? cmp : -cmp;
+          });
+        }
+      }
     }
 
     applyFilters();
@@ -272,12 +292,19 @@ function renderTable(container, df, onSort) {
 
       function doSort() {
         if (sortCol === colName) {
-          sortAsc = !sortAsc;
+          if (!sortAsc) {
+            // Third click: remove sort
+            sortCol = null;
+            sortAsc = true;
+          } else {
+            sortAsc = false;
+          }
         } else {
           sortCol = colName;
           sortAsc = true;
         }
-        if (onSort) onSort(colName, sortAsc);
+        rebuildSorted();
+        if (onSort) onSort(sortCol, sortAsc);
       }
 
       th.addEventListener('click', doSort);
@@ -457,6 +484,15 @@ function renderTable(container, df, onSort) {
       lastStart = -1;
       lastEnd = -1;
       renderVisibleRows();
+    }
+
+    function rebuildSorted() {
+      applyFilters();
+      updateBadge();
+      lastStart = -1;
+      lastEnd = -1;
+      // Re-render headers to update sort arrow
+      render(dt);
     }
 
     // Copy to clipboard button (TSV for Excel paste)
