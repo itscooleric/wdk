@@ -374,6 +374,7 @@ function createAppShell() {
 
   var btnScanner = makeToolbarBtn('\u26a0', 'Scanner', 'File preflight scanner');
   var btnHelp = makeToolbarBtn('?', 'Help', 'Keyboard shortcuts and usage guide', 'F1');
+  var btnSettings = makeToolbarBtn('\u2699', 'Settings', 'User preferences');
 
   toolbar.appendChild(btnImport);
   toolbar.appendChild(makeToolbarSep());
@@ -385,6 +386,7 @@ function createAppShell() {
   toolbar.appendChild(btnClear);
   toolbar.appendChild(makeToolbarSep());
   toolbar.appendChild(btnHelp);
+  toolbar.appendChild(btnSettings);
   toolbar.appendChild(colTypeContainer);
 
   // Keyboard navigation for toolbar: arrow keys move between buttons
@@ -894,6 +896,121 @@ function createAppShell() {
   document.addEventListener('keydown', function (e) {
     if (e.key === 'F1') { e.preventDefault(); toggleHelp(); }
     if (e.key === 'Escape' && helpOverlay.style.display !== 'none') { toggleHelp(); }
+    if (e.key === 'Escape' && settingsOverlay.style.display !== 'none') { toggleSettings(); }
+  });
+
+  // ─── Settings panel ─────────────────────────────────────────────
+
+  var WDK_SETTINGS_DEFAULTS = {
+    replEnterExec: true,
+    defaultExport: 'csv',
+    tablePageSize: 500,
+  };
+
+  function loadSettings() {
+    try {
+      var saved = localStorage.getItem('wdk_settings');
+      if (saved) {
+        var parsed = JSON.parse(saved);
+        var merged = {};
+        for (var k in WDK_SETTINGS_DEFAULTS) merged[k] = WDK_SETTINGS_DEFAULTS[k];
+        for (var k2 in parsed) merged[k2] = parsed[k2];
+        return merged;
+      }
+    } catch (_) {}
+    var copy = {};
+    for (var k3 in WDK_SETTINGS_DEFAULTS) copy[k3] = WDK_SETTINGS_DEFAULTS[k3];
+    return copy;
+  }
+
+  function saveSettings(s) {
+    try { localStorage.setItem('wdk_settings', JSON.stringify(s)); } catch (_) {}
+  }
+
+  var wdkSettings = loadSettings();
+
+  var settingsOverlay = document.createElement('div');
+  settingsOverlay.style.cssText = 'display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:10000;align-items:center;justify-content:center;';
+
+  var settingsBox = document.createElement('div');
+  settingsBox.style.cssText = 'background:#12122a;border:1px solid #2a2a4e;border-radius:6px;padding:24px 32px;max-width:440px;color:#e0e0f0;font-family:"SF Mono","Fira Code","Consolas",monospace;font-size:12px;line-height:1.7;';
+
+  function buildSettingsUI() {
+    settingsBox.innerHTML = '';
+    var title = document.createElement('h2');
+    title.textContent = 'Settings';
+    title.style.cssText = 'margin:0 0 16px;color:#00e5ff;font-size:16px;';
+    settingsBox.appendChild(title);
+
+    function addToggle(label, key) {
+      var row = document.createElement('div');
+      row.style.cssText = 'display:flex;align-items:center;justify-content:space-between;margin:8px 0;';
+      var lbl = document.createElement('span');
+      lbl.textContent = label;
+      var cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.checked = wdkSettings[key];
+      cb.addEventListener('change', function () {
+        wdkSettings[key] = cb.checked;
+        saveSettings(wdkSettings);
+      });
+      row.appendChild(lbl);
+      row.appendChild(cb);
+      settingsBox.appendChild(row);
+    }
+
+    function addSelect(label, key, options) {
+      var row = document.createElement('div');
+      row.style.cssText = 'display:flex;align-items:center;justify-content:space-between;margin:8px 0;';
+      var lbl = document.createElement('span');
+      lbl.textContent = label;
+      var sel = document.createElement('select');
+      sel.style.cssText = 'background:#0a0a1a;color:#e0e0f0;border:1px solid #2a2a4e;padding:2px 6px;font-family:inherit;font-size:11px;';
+      options.forEach(function (opt) {
+        var o = document.createElement('option');
+        o.value = opt.value;
+        o.textContent = opt.label;
+        if (wdkSettings[key] === opt.value) o.selected = true;
+        sel.appendChild(o);
+      });
+      sel.addEventListener('change', function () {
+        wdkSettings[key] = isNaN(Number(sel.value)) ? sel.value : Number(sel.value);
+        saveSettings(wdkSettings);
+      });
+      row.appendChild(lbl);
+      row.appendChild(sel);
+      settingsBox.appendChild(row);
+    }
+
+    addToggle('Enter executes in REPL', 'replEnterExec');
+    addSelect('Default export format', 'defaultExport', [
+      { value: 'csv', label: 'CSV' },
+      { value: 'json', label: 'JSON' },
+    ]);
+    addSelect('Table page size', 'tablePageSize', [
+      { value: 100, label: '100 rows' },
+      { value: 250, label: '250 rows' },
+      { value: 500, label: '500 rows' },
+      { value: 1000, label: '1000 rows' },
+    ]);
+
+    var note = document.createElement('p');
+    note.style.cssText = 'margin-top:14px;color:#8888aa;font-size:11px;';
+    note.textContent = 'Settings are saved in localStorage. Press Escape to close.';
+    settingsBox.appendChild(note);
+  }
+
+  settingsOverlay.appendChild(settingsBox);
+  document.body.appendChild(settingsOverlay);
+
+  function toggleSettings() {
+    if (settingsOverlay.style.display === 'none') buildSettingsUI();
+    settingsOverlay.style.display = settingsOverlay.style.display === 'none' ? 'flex' : 'none';
+  }
+
+  btnSettings.addEventListener('click', toggleSettings);
+  settingsOverlay.addEventListener('click', function (e) {
+    if (e.target === settingsOverlay) toggleSettings();
   });
 
   // ─── Split handle drag ────────────────────────────────────────────
