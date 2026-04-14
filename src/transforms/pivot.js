@@ -31,7 +31,8 @@ function groupBy(df, groupCols) {
  * Parse a numeric value from a cell, returning NaN for non-numeric.
  */
 function toNum(val) {
-  if (val === null || val === undefined || val === '') return NaN;
+  if (val === null || val === undefined) return NaN;
+  if (typeof val === 'string') { val = val.trim(); if (val === '') return NaN; }
   var n = Number(val);
   return n;
 }

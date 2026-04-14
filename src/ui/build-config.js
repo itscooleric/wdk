@@ -153,6 +153,58 @@ function createBuildConfig(container) {
   summary.style.cssText = 'margin-top:12px;padding:8px;border:1px solid ' + theme.border + ';border-radius:3px;';
   wrapper.appendChild(summary);
 
+  // Action buttons
+  var actionBar = document.createElement('div');
+  actionBar.style.cssText = 'display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;';
+
+  var copyBmBtn = document.createElement('button');
+  copyBmBtn.textContent = 'Copy Bookmarklet';
+  copyBmBtn.style.cssText = 'background:' + theme.cyan + ';color:#0a0a1a;border:none;padding:6px 14px;cursor:pointer;font-family:inherit;font-size:11px;font-weight:bold;border-radius:2px;';
+  copyBmBtn.addEventListener('click', function () {
+    var scripts = document.querySelectorAll('script');
+    var js = '';
+    for (var i = 0; i < scripts.length; i++) {
+      if (scripts[i].textContent.length > 1000) { js = scripts[i].textContent; break; }
+    }
+    if (!js) { copyBmBtn.textContent = 'No script found'; return; }
+    var uri = 'javascript:' + encodeURIComponent(js);
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(uri).then(function () {
+        copyBmBtn.textContent = 'Copied!';
+        setTimeout(function () { copyBmBtn.textContent = 'Copy Bookmarklet'; }, 2000);
+      });
+    } else {
+      var ta = document.createElement('textarea');
+      ta.value = uri;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      copyBmBtn.textContent = 'Copied!';
+      setTimeout(function () { copyBmBtn.textContent = 'Copy Bookmarklet'; }, 2000);
+    }
+  });
+
+  var dlHtmlBtn = document.createElement('button');
+  dlHtmlBtn.textContent = 'Download HTML';
+  dlHtmlBtn.style.cssText = 'background:transparent;color:' + theme.cyan + ';border:1px solid ' + theme.border + ';padding:6px 14px;cursor:pointer;font-family:inherit;font-size:11px;border-radius:2px;';
+  dlHtmlBtn.addEventListener('click', function () {
+    var html = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
+    var blob = new Blob([html], { type: 'text/html' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = 'wdk.html';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  });
+
+  actionBar.appendChild(copyBmBtn);
+  actionBar.appendChild(dlHtmlBtn);
+  wrapper.appendChild(actionBar);
+
   container.appendChild(wrapper);
   updateSummary();
 
