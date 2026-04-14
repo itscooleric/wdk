@@ -284,7 +284,14 @@ function createREPL(container, getContext) {
     });
 
     try {
-      var fn = new Function('data', 'df', 'rows', 'headers', 'meta', 'window', code);
+      // Try auto-return: wrap as expression so bare values like `data.length` return a result
+      var fn;
+      try {
+        fn = new Function('data', 'df', 'rows', 'headers', 'meta', 'window', 'return (' + code + ')');
+      } catch (_) {
+        // If that fails (e.g. multi-statement code), use the raw code
+        fn = new Function('data', 'df', 'rows', 'headers', 'meta', 'window', code);
+      }
       var result = fn(ctx.data, ctx.data, ctx.rows, ctx.headers, ctx.meta, window);
 
       if (result !== undefined) {
