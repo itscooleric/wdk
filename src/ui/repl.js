@@ -215,6 +215,76 @@ function createREPL(container, getContext) {
     appendEntry(node);
   }
 
+  // --- Export helpers ---
+
+  var lastResult = undefined;
+
+  function showExportBar(value) {
+    // Remove previous export bar if any
+    var prev = output.querySelector('.dk-repl-export-bar');
+    if (prev) prev.parentNode.removeChild(prev);
+
+    if (value === null || value === undefined || typeof value !== 'object') return;
+
+    var bar = document.createElement('div');
+    bar.className = 'dk-repl-export-bar';
+    bar.style.cssText = 'display:flex;gap:6px;margin:4px 0 6px;';
+
+    function makeBtn(label, onClick) {
+      var btn = document.createElement('button');
+      btn.textContent = label;
+      btn.style.cssText = 'background:transparent;color:' + THEME.cyan + ';border:1px solid ' + THEME.border + ';padding:2px 8px;cursor:pointer;font-family:inherit;font-size:10px;border-radius:2px;';
+      btn.addEventListener('click', onClick);
+      return btn;
+    }
+
+    bar.appendChild(makeBtn('Copy JSON', function () {
+      var text = JSON.stringify(value, null, 2);
+      copyToClipboard(text);
+      this.textContent = 'Copied!';
+      var self = this;
+      setTimeout(function () { self.textContent = 'Copy JSON'; }, 1500);
+    }));
+
+    if (Array.isArray(value) && value.length > 0 && typeof value[0] === 'object' && value[0] !== null) {
+      bar.appendChild(makeBtn('Copy CSV', function () {
+        var keys = Object.keys(value[0]);
+        var lines = [keys.join(',')];
+        for (var i = 0; i < value.length; i++) {
+          var row = keys.map(function (k) {
+            var v = value[i][k];
+            if (v === null || v === undefined) return '';
+            var s = String(v);
+            if (s.indexOf(',') >= 0 || s.indexOf('"') >= 0 || s.indexOf('\n') >= 0) {
+              return '"' + s.replace(/"/g, '""') + '"';
+            }
+            return s;
+          });
+          lines.push(row.join(','));
+        }
+        copyToClipboard(lines.join('\n'));
+        this.textContent = 'Copied!';
+        var self = this;
+        setTimeout(function () { self.textContent = 'Copy CSV'; }, 1500);
+      }));
+    }
+
+    appendEntry(bar);
+  }
+
+  function copyToClipboard(text) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text);
+    } else {
+      var ta = document.createElement('textarea');
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+    }
+  }
+
   // --- Console intercept ---
 
   function makeInterceptedConsole() {
@@ -296,6 +366,8 @@ function createREPL(container, getContext) {
 
       if (result !== undefined) {
         appendResult(result);
+        lastResult = result;
+        showExportBar(result);
       }
     } catch (err) {
       appendText(err.message, THEME.red);

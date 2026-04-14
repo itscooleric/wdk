@@ -373,6 +373,7 @@ function createAppShell() {
   colTypeContainer.id = 'dk-col-types';
 
   var btnScanner = makeToolbarBtn('\u26a0', 'Scanner', 'File preflight scanner');
+  var btnHelp = makeToolbarBtn('?', 'Help', 'Keyboard shortcuts and usage guide', 'F1');
 
   toolbar.appendChild(btnImport);
   toolbar.appendChild(makeToolbarSep());
@@ -382,6 +383,8 @@ function createAppShell() {
   toolbar.appendChild(btnScanner);
   toolbar.appendChild(makeToolbarSep());
   toolbar.appendChild(btnClear);
+  toolbar.appendChild(makeToolbarSep());
+  toolbar.appendChild(btnHelp);
   toolbar.appendChild(colTypeContainer);
 
   // Keyboard navigation for toolbar: arrow keys move between buttons
@@ -831,6 +834,67 @@ function createAppShell() {
   btnExportCSV.addEventListener('click', exportCSV);
   btnExportJSON.addEventListener('click', exportJSON);
   btnClear.addEventListener('click', clearData);
+
+  // ─── Help panel ──────────────────────────────────────────────────
+
+  var helpOverlay = document.createElement('div');
+  helpOverlay.style.cssText = 'display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:10000;align-items:center;justify-content:center;';
+
+  var helpBox = document.createElement('div');
+  helpBox.style.cssText = 'background:#12122a;border:1px solid #2a2a4e;border-radius:6px;padding:24px 32px;max-width:560px;max-height:80vh;overflow-y:auto;color:#e0e0f0;font-family:"SF Mono","Fira Code","Consolas",monospace;font-size:12px;line-height:1.7;scrollbar-width:thin;scrollbar-color:#2a2a4e #12122a;';
+
+  var helpSections = [
+    '<h2 style="margin:0 0 12px;color:#00e5ff;font-size:16px;">WDK Help</h2>',
+    '<h3 style="color:#b967ff;font-size:12px;margin:14px 0 6px;">Getting Started</h3>',
+    '<p>Drop a <b>.csv</b>, <b>.tsv</b>, <b>.json</b>, or <b>.xlsx</b> file onto the import area, or click Browse.</p>',
+    '<h3 style="color:#b967ff;font-size:12px;margin:14px 0 6px;">REPL Console</h3>',
+    '<p>The bottom REPL panel lets you script against loaded data:</p>',
+    '<ul style="padding-left:18px;margin:4px 0;">',
+    '<li><code style="color:#00e5ff;">data</code> \u2014 array of row objects</li>',
+    '<li><code style="color:#00e5ff;">headers</code> \u2014 column names array</li>',
+    '<li><code style="color:#00e5ff;">rows</code> \u2014 raw 2D array</li>',
+    '<li><code style="color:#00e5ff;">meta</code> \u2014 { rowCount, columnCount }</li>',
+    '</ul>',
+    '<p>Enter executes, Shift+Enter for multiline. Results auto-display with export buttons.</p>',
+    '<h3 style="color:#b967ff;font-size:12px;margin:14px 0 6px;">Pivot / Aggregate</h3>',
+    '<p>Switch to the <b>Pivot</b> tab to group and aggregate data. Supports: sum, count, avg, min, max, distinct, first, last, concat.</p>',
+    '<h3 style="color:#b967ff;font-size:12px;margin:14px 0 6px;">SQL Queries</h3>',
+    '<p>Use the <b>Notebook</b> tab to run SQL against loaded tables. Supports SELECT, WHERE, ORDER BY, GROUP BY, JOIN, window functions.</p>',
+    '<h3 style="color:#b967ff;font-size:12px;margin:14px 0 6px;">Keyboard Shortcuts</h3>',
+    '<table style="border-collapse:collapse;width:100%;margin:4px 0;">',
+    '<tr><td style="padding:2px 8px;color:#00e5ff;">Ctrl+I</td><td>Import file</td></tr>',
+    '<tr><td style="padding:2px 8px;color:#00e5ff;">Ctrl+E</td><td>Export as CSV</td></tr>',
+    '<tr><td style="padding:2px 8px;color:#00e5ff;">Ctrl+L</td><td>Clear data</td></tr>',
+    '<tr><td style="padding:2px 8px;color:#00e5ff;">F1</td><td>Toggle help</td></tr>',
+    '<tr><td style="padding:2px 8px;color:#00e5ff;">Click column header</td><td>Sort asc/desc</td></tr>',
+    '</table>',
+    '<h3 style="color:#b967ff;font-size:12px;margin:14px 0 6px;">REPL Shortcuts</h3>',
+    '<table style="border-collapse:collapse;width:100%;margin:4px 0;">',
+    '<tr><td style="padding:2px 8px;color:#00e5ff;">Enter</td><td>Execute</td></tr>',
+    '<tr><td style="padding:2px 8px;color:#00e5ff;">Shift+Enter</td><td>New line</td></tr>',
+    '<tr><td style="padding:2px 8px;color:#00e5ff;">Up/Down</td><td>Command history</td></tr>',
+    '<tr><td style="padding:2px 8px;color:#00e5ff;">Ctrl+L</td><td>Clear REPL output</td></tr>',
+    '<tr><td style="padding:2px 8px;color:#00e5ff;">Tab</td><td>Insert 2 spaces</td></tr>',
+    '</table>',
+    '<p style="margin-top:14px;color:#8888aa;font-size:11px;">Press Escape or click outside to close.</p>',
+  ];
+  helpBox.innerHTML = helpSections.join('\n');
+
+  helpOverlay.appendChild(helpBox);
+  document.body.appendChild(helpOverlay);
+
+  function toggleHelp() {
+    helpOverlay.style.display = helpOverlay.style.display === 'none' ? 'flex' : 'none';
+  }
+
+  btnHelp.addEventListener('click', toggleHelp);
+  helpOverlay.addEventListener('click', function (e) {
+    if (e.target === helpOverlay) toggleHelp();
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'F1') { e.preventDefault(); toggleHelp(); }
+    if (e.key === 'Escape' && helpOverlay.style.display !== 'none') { toggleHelp(); }
+  });
 
   // ─── Split handle drag ────────────────────────────────────────────
 
