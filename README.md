@@ -33,7 +33,7 @@ WDK fills that gap.
 
 | Module | Size | Description |
 |---|---|---|
-| **CSV Parser** | 2.0 KB | RFC 4180 compliant, streaming-capable |
+| **CSV Parser** | 2.0 KB | RFC 4180 compliant, streaming for >100MB files |
 | **JSON Parser** | 4.4 KB | Nested object flattening, array handling |
 | **ZIP Parser** | 3.3 KB | Pure JS zip extraction (for XLSX) |
 | **XLSX Parser** | 18.6 KB | Excel file reading via zip+xml, no deps |
@@ -45,20 +45,22 @@ WDK fills that gap.
 | **Type Detection** | 3.2 KB | Auto-detect column types |
 | **Redaction** | 2.1 KB | Hash and mask sensitive values |
 | **Export** | 3.4 KB | CSV, JSON, clipboard, file download |
-| **Table Renderer** | 8.3 KB | Virtual scroll, sort, copy TSV |
+| **Table Renderer** | 8.3 KB | Virtual scroll, sort, copy TSV, null display, row selection |
 | **File Import** | 8.7 KB | Drag-drop with format detection |
 | **REPL** | 6.3 KB | Interactive JS console with DataFrame context |
+| **Command Palette** | 3.5 KB | Ctrl+P fuzzy-search action launcher |
 | **Pivot Panel** | 6.7 KB | Aggregate/pivot UI with multi-select |
-| **Notebook** | 9.6 KB | Multi-cell JS + SQL execution |
+| **Notebook** | 9.6 KB | JS + SQL + Markdown cells, drag reorder, stale warnings |
+| **Debug Panel** | 5.0 KB | Unified Network/Console/Storage/DOM inspector |
 | **Build Config** | 5.0 KB | Module selector with size estimates |
-| **App Shell** | 29.7 KB | Tab navigation, file management, theme |
+| **App Shell** | 29.7 KB | Tab navigation, file management, onboarding, theme |
 | **Panel System** | 9.3 KB | Draggable floating panel (bookmarklet mode) |
 | **DOM Scraper** | 5.6 KB | Extract tables/data from any page |
 | **Network Interceptor** | 4.5 KB | Capture XHR/fetch responses |
 | **Storage Viewer** | 2.3 KB | Browse localStorage/sessionStorage |
 | **Console Capture** | 2.0 KB | Intercept console.log output |
 
-**Total: 24 modules, ~191 KB, zero dependencies.**
+**Total: 26 modules, ~200 KB, zero dependencies.**
 
 ## SQL
 
@@ -113,13 +115,19 @@ $l.Start()
 ## Build
 
 ```bash
-node build.js
+node build.js                  # full build (all modules)
+node build.js --tier=minimal   # minimal bookmarklet (<100KB)
 ```
 
-Outputs:
-- `dist/wiz.js` — IIFE bundle (~191 KB)
-- `dist/wiz.html` — standalone HTML with JS inlined
-- `dist/wiz-bookmarklet.txt` — `javascript:` URI
+Outputs (full):
+- `dist/wdk.js` — IIFE bundle (~200 KB)
+- `dist/wdk.html` — standalone HTML with JS inlined
+- `dist/wdk-bookmarklet.txt` — `javascript:` URI
+
+Outputs (minimal):
+- `dist/wdk-minimal.js` — core + REPL only (~80 KB)
+- `dist/wdk-minimal.html` — standalone HTML
+- `dist/wdk-minimal-bookmarklet.txt` — `javascript:` URI (<100 KB)
 
 Build tiers are configurable via the Build Configurator tab.
 
@@ -154,11 +162,22 @@ src/
 
 Zero dependencies. Zero build tools required (build.js is vanilla Node). Every module is a standalone JS file that works in browser or Node. The build script concatenates them into an IIFE.
 
+## Keyboard Shortcuts
+
+| Key | Action |
+|---|---|
+| Ctrl+P | Command palette (fuzzy search all actions) |
+| Ctrl+I | Import file |
+| Ctrl+E | Export as CSV |
+| Ctrl+L | Clear data |
+| F1 | Help panel |
+| Shift+Enter | Multiline in REPL / run cell in Notebook |
+| Click header | Sort column (asc → desc → none) |
+| Click row | Select row (Shift+click for range) |
+
 ## Roadmap
 
-- **Sprint B** — PII scanner (browser-side, shared pattern config with PowerShell)
 - **Sprint C** — PowerShell SFTP transfer engine (SSH.NET, PII gate, audit logging)
-- **Sprint D** — Performance (Web Workers, streaming CSV, optional DuckDB-Wasm)
 - **Sprint E** — SharePoint REST integration (lists as tables, document libraries as folders)
 
 ## License

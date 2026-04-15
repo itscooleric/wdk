@@ -72,6 +72,9 @@ All tiers use the same build output. The difference is runtime context: bookmark
              notebook.js -------------> execSQL, renderTable
                    |
                    v
+         command-palette.js (standalone)
+                   |
+                   v
            build-config.js (standalone, data-only)
                    |
                    v
@@ -102,6 +105,8 @@ All tiers use the same build output. The difference is runtime context: bookmark
                                         |
                                      sp-aspx.js (standalone)
 
+       debug-panel.js ------------> inspect modules (unified UI wrapper)
+                   |
        INSPECT (self-contained IIFEs, no WDK deps)
        dom-scraper.js
        network-interceptor.js
@@ -126,7 +131,7 @@ All tiers use the same build output. The difference is runtime context: bookmark
 
 | File | Purpose | Key Globals | Dependencies | Tiers |
 |------|---------|-------------|--------------|-------|
-| `csv.js` | RFC 4180 CSV parser. Handles quoted fields, embedded newlines, BOM stripping, configurable delimiter. | `parseCSV(text, opts)`, `parseCSVFile(file)` | None | All |
+| `csv.js` | RFC 4180 CSV parser. Handles quoted fields, embedded newlines, BOM stripping, configurable delimiter. Includes streaming mode (`parseCSVStreaming`) for files >50MB — processes in 2MB chunks with `onChunk` progress callback, handles files >100MB without memory issues. | `parseCSV(text, opts)`, `parseCSVFile(file)`, `parseCSVStreaming(file, opts)` | None | All |
 | `json.js` | JSON parser with error recovery (trailing commas, single quotes). Flattens arrays of objects into tabular form. | `parseJSON(text)`, `parseJSONFile(file)` | None | All |
 | `zip.js` | Minimal ZIP reader using browser DecompressionStream API. Supports stored and deflate methods. | `unzip(arrayBuffer)` | None | Tier 2+ |
 | `xlsx.js` | OOXML (.xlsx) reader. Parses shared strings, styles, date serials, multi-sheet workbooks. | `parseXLSX(arrayBuffer, opts)`, `excelSerialToDate(serial)` | `zip.js` (`unzip` global) | Tier 2+ |
@@ -160,12 +165,14 @@ All tiers use the same build output. The difference is runtime context: bookmark
 | File | Purpose | Key Globals | Dependencies | Tiers |
 |------|---------|-------------|--------------|-------|
 | `panel.js` | Draggable, resizable floating panel with Synthwave 84 theme. Used in bookmarklet mode. | `createPanel()`, `DK_THEME` | None | All |
-| `table.js` | Virtual-scroll table renderer. Filter expressions, column sort, TSV copy. Handles large row counts efficiently. | `renderTable(container, table)`, `DK_TABLE_THEME` | None | All |
+| `table.js` | Virtual-scroll table renderer. Filter expressions, column sort, TSV copy. Handles large row counts efficiently. Null values display as gray italic "null". Row selection (click to select, Shift+click for range) with summary bar (count, SUM, AVG). Column type badges shown on header hover as tooltips. | `renderTable(container, table)`, `DK_TABLE_THEME` | None | All |
 | `file-import.js` | Drag-and-drop zone + file picker. Detects CSV/JSON/TSV/XLSX by extension and content, parses, returns DataFrame. | `createFileImport(container, onDataLoaded)` | `parseCSV`, `parseJSON`, `parseXLSX`, `DataFrame` | All |
 | `repl.js` | Interactive JS scripting console. Exposes `df`, `data`, `rows`, `headers`, `meta` in eval scope. Captures console output. | `createREPL(container, getContext)` | Runtime context only | Tier 2+ |
 | `pivot-panel.js` | UI for aggregate/pivot operations. Multi-select for group columns, agg function picker, inline result table. | `createPivotPanel(container, getDataFrame)` | `aggregate`, `pivot`, `renderTable`, `DataFrame` | Tier 2+ |
-| `notebook.js` | Multi-cell execution environment. JS cells run against df context, SQL cells run against named tables via `execSQL`. | `createNotebook(container, getContext)` | `execSQL`, `renderTable` | Tier 2+ |
+| `notebook.js` | Multi-cell execution environment. JS cells run against df context, SQL cells run against named tables via `execSQL`. Markdown cells with basic renderer (headings, bold, italic, code, lists, hr). Stale output warning (grays out after cell edit). Cell drag-to-reorder. Welcome template with 3 pre-populated cells on first use. | `createNotebook(container, getContext)` | `execSQL`, `renderTable` | Tier 2+ |
 | `build-config.js` | Module selector showing all modules with sizes and tier tags. Preset buttons (bookmarklet, standalone, full, minimal). | `createBuildConfig(container)`, `DK_BUILD_MODULES`, `DK_BUILD_TIERS`, `DK_BUILD_PRESETS` | None (data-only + DOM) | Tier 2+ |
+| `command-palette.js` | Fuzzy-search command palette (Ctrl+P). 11 built-in actions (tab navigation, export, settings). Arrow keys + Enter to select, Escape to close. | `createCommandPalette(actions)`, `openCommandPalette()` | None (standalone, wired by app-shell) | Tier 2+ |
+| `debug-panel.js` | Tabbed debug panel with 4 sub-tabs: Network (live request log), Console (captured output), Storage (cookie/localStorage/sessionStorage viewer), DOM (table scraper). Unified UI wrapper around inspect modules. | `createDebugPanel(container)` | Inspect modules (`startIntercepting`, `startCapture`, `readStorage`, `extractTable`) | Tier 1 (bookmarklet) |
 | `app-shell.js` | Full-page application shell. Tab navigation (Data, SQL, Pivot, Notebook, Build, Scanner, SharePoint), file management, theme. Routes to bookmarklet panel mode when injected. | `initWDK()`, `DK_SHELL_THEME` | All other UI modules + export + transforms | All |
 
 ### Scanner (`src/scanner/`)

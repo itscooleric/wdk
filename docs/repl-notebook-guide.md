@@ -108,11 +108,15 @@ Click the **Notebook tab** in the WDK app shell.
 
 **SQL cells** run SQL queries against all loaded tables. The result renders as an inline table.
 
+**Markdown cells** render formatted text using a basic Markdown renderer supporting headings, **bold**, *italic*, `inline code`, lists, and horizontal rules. Use them to annotate your analysis with explanations, section headers, or notes.
+
 ### Adding cells
 
 - Click **+ JS Cell** to add a JavaScript cell
 - Click **+ SQL Cell** to add a SQL cell
+- Click **+ Markdown Cell** to add a Markdown cell
 - Click **Run All** to execute every cell in order
+- **Drag cells** to reorder them — grab the drag handle on the left side of any cell and drop it at the desired position
 
 Each cell has its own **Run** button. Click it (or press `Ctrl+Enter` inside the cell) to run just that cell.
 
@@ -187,6 +191,14 @@ console.log(lines.join('\n'));
 ```
 
 ![WDK notebook view — JS and SQL cells with inline results](screenshots/wdk-screenshot-notebook.png)
+
+### Welcome template
+
+When you first open the Notebook tab (or have no cells), WDK loads a **welcome template** with 3 pre-populated cells demonstrating a typical workflow: load data, query it with SQL, and transform with JavaScript. Delete or edit these cells to start your own analysis.
+
+### Stale output warning
+
+If you edit a cell's code after running it, the output is marked as **stale** — it grays out to indicate the displayed result no longer matches the current code. Re-run the cell to refresh.
 
 ### Tips
 

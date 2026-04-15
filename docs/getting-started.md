@@ -15,6 +15,10 @@ If you're building from source:
 ```bash
 node build.js
 # creates dist/wdk.html
+
+# Or build a minimal bookmarklet (<100KB, CSV-only):
+node build.js --tier=minimal
+# creates dist/wdk-minimal.js, dist/wdk-minimal-bookmarklet.txt, dist/wdk-minimal.html
 ```
 
 ## Step 2: Open WDK
@@ -24,6 +28,8 @@ node build.js
 > **Tip:** If you need full features (clipboard access, large file handling), serve it from localhost instead. See the [Deployment Guide](deployment-guide.md) for a one-command PowerShell server.
 
 You'll see the WDK app shell with tabs across the top: **Data, SQL, Pivot, Notebook, Build, Scanner, SharePoint**.
+
+> **First time?** WDK shows onboarding hints on first use: empty-state messages in the REPL, Pivot, and Notebook panes guide you on what to do next, and tooltip hints highlight key shortcuts like **Ctrl+P** (command palette) and **Shift+Enter** (run cell). The Notebook tab opens with a **welcome template** containing 3 pre-populated cells to get you started.
 
 ## Step 3: Load a file
 
@@ -54,6 +60,9 @@ After loading a file, the **Data tab** shows your table. You can:
 - **Copy as TSV** — click the copy button to copy the visible table to clipboard for pasting into Excel.
 
 The status bar shows row and column counts.
+
+- **Select rows** by clicking a row. Use **Shift+click** to select a range. When rows are selected, a summary bar appears showing count, SUM, and AVG of numeric columns.
+- **Command palette** — press **Ctrl+P** to open a fuzzy-search action list with 11 built-in actions (navigate tabs, toggle settings, export, etc.). Use arrow keys to navigate and Enter to select.
 
 ## Step 5: Run your first SQL query
 

@@ -25,6 +25,26 @@ WDK injects as a floating panel with access to the page's DOM, network requests,
 
 **Best for:** Extracting data from web applications (dashboards, admin panels, intranets).
 
+### Option 2b: Minimal Bookmarklet (<100KB)
+
+For environments with strict URL length limits or where you only need CSV analysis:
+
+```bash
+node build.js --tier=minimal
+```
+
+This produces three artifacts:
+
+| File | Description |
+|------|-------------|
+| `dist/wdk-minimal.js` | Readable JS bundle (core modules only) |
+| `dist/wdk-minimal-bookmarklet.txt` | URL-encoded `javascript:` URI, under 100KB |
+| `dist/wdk-minimal.html` | Standalone HTML with minimal bundle inlined |
+
+The minimal build includes only the `core` tier: CSV/JSON parsers, DataFrame, Pipeline, Type Detection, Export, Table, File Import, Panel, and App Shell. No XLSX, SQL, Pivot, Notebook, or Inspect modules.
+
+**Best for:** Maximum browser compatibility, strictest URL length limits, CSV-only workflows.
+
 ### Option 3: localhost Server (full features)
 
 Serve WDK from a local PowerShell HTTP server to unlock all browser APIs:
@@ -138,6 +158,7 @@ For maximum control on on-premises SharePoint, deploy as a custom application pa
 | Constraint | Recommended Option |
 |---|---|
 | No server at all | Option 1 (standalone HTML) |
+| Smallest possible footprint | Option 2b (minimal bookmarklet, <100KB) |
 | Need to scrape web pages | Option 2 (bookmarklet) |
 | Want full browser API access | Option 3 (localhost) |
 | SharePoint 2013, Script Editor enabled | Option 4 (SEWP) |

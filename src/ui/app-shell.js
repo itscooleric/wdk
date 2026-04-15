@@ -5,7 +5,7 @@
  * Synthwave 84 dark theme. Zero external dependencies.
  */
 
-/* global createPanel, createFileImport, renderTable, createREPL, createPivotPanel, createNotebook, createBuildConfig, aggregate, pivot, execSQL, toCSV, toJSON, downloadBlob */
+/* global createPanel, createFileImport, renderTable, createREPL, createPivotPanel, createNotebook, createBuildConfig, createDebugPanel, aggregate, pivot, execSQL, toCSV, toJSON, downloadBlob, createCommandPalette */
 
 var DK_SHELL_THEME = {
   bg: '#0a0a1a',
@@ -467,18 +467,40 @@ function createAppShell() {
   notebookPane.setAttribute('aria-label', 'Notebook');
   notebookPane.style.cssText = 'flex:1;overflow:hidden;display:none;flex-direction:column;';
 
+  // ─── Empty state messages ──────────────────────────────────────────
+  function _makeEmptyState(icon, msg) {
+    var emptyEl = document.createElement('div');
+    emptyEl.className = 'dk-empty-state';
+    emptyEl.style.cssText = 'display:flex;align-items:center;justify-content:center;flex:1;padding:24px;text-align:center;color:' + DK_SHELL_THEME.textDim + ';font-style:italic;font-size:12px;opacity:0.7;';
+    emptyEl.innerHTML = '<span style="font-size:18px;margin-right:8px;opacity:0.5;">' + icon + '</span> ' + msg;
+    return emptyEl;
+  }
+
+  var replEmptyState = _makeEmptyState('\u2328', 'Load a data file to start scripting. Variables: data, rows, headers, meta');
+  var pivotEmptyState = _makeEmptyState('\u2696', 'Load a data file to use pivot and aggregation tools');
+  var notebookEmptyState = _makeEmptyState('\ud83d\udcd3', 'Load a data file to use the notebook. Supports JS, SQL, and Markdown cells.');
+  replPane.appendChild(replEmptyState);
+  pivotPane.appendChild(pivotEmptyState);
+  notebookPane.appendChild(notebookEmptyState);
+
   var buildPane = document.createElement('div');
   buildPane.id = 'dk-shell-build-pane';
   buildPane.setAttribute('role', 'tabpanel');
   buildPane.setAttribute('aria-label', 'Build');
   buildPane.style.cssText = 'flex:1;overflow:hidden;display:none;flex-direction:column;';
 
+  var debugPane = document.createElement('div');
+  debugPane.id = 'dk-shell-debug-pane';
+  debugPane.setAttribute('role', 'tabpanel');
+  debugPane.setAttribute('aria-label', 'Debug');
+  debugPane.style.cssText = 'flex:1;overflow:hidden;display:none;flex-direction:column;';
+
   // Bottom panel tab bar
   var bottomTabBar = document.createElement('div');
   bottomTabBar.style.cssText = 'display:flex;gap:0;background:#0a0a1a;border-bottom:1px solid ' + DK_SHELL_THEME.border + ';flex-shrink:0;';
   bottomTabBar.setAttribute('role', 'tablist');
   bottomTabBar.setAttribute('aria-label', 'Bottom panels');
-  var bottomPanes = { repl: replPane, pivot: pivotPane, notebook: notebookPane, build: buildPane };
+  var bottomPanes = { repl: replPane, pivot: pivotPane, notebook: notebookPane, build: buildPane, debug: debugPane };
   function makeBottomTab(label, target) {
     var btn = document.createElement('button');
     btn.textContent = label;
@@ -505,10 +527,12 @@ function createAppShell() {
   replTab.style.borderBottomColor = DK_SHELL_THEME.cyan;
   replTab.setAttribute('aria-selected', 'true');
   var buildTab = makeBottomTab('Build', 'build');
+  var debugTab = makeBottomTab('Debug', 'debug');
   bottomTabBar.appendChild(replTab);
   bottomTabBar.appendChild(pivotTab);
   bottomTabBar.appendChild(notebookTab);
   bottomTabBar.appendChild(buildTab);
+  bottomTabBar.appendChild(debugTab);
 
   // Bottom panel container
   var bottomPanel = document.createElement('div');
@@ -518,6 +542,7 @@ function createAppShell() {
   bottomPanel.appendChild(pivotPane);
   bottomPanel.appendChild(notebookPane);
   bottomPanel.appendChild(buildPane);
+  bottomPanel.appendChild(debugPane);
 
   dataView.appendChild(sheetTabBar);
   dataView.appendChild(tablePane);
@@ -558,6 +583,12 @@ function createAppShell() {
   // Init build configurator (doesn't need data)
   if (typeof createBuildConfig === 'function') {
     createBuildConfig(buildPane);
+  }
+
+  // Init debug panel (doesn't need data)
+  var debugInstance = null;
+  if (typeof createDebugPanel === 'function') {
+    debugInstance = createDebugPanel(debugPane, onDataLoaded);
   }
 
   // Status bar
@@ -703,6 +734,13 @@ function createAppShell() {
     if (typeof createREPL === 'function' && !replInstance) {
       replPane.innerHTML = '';
       replInstance = createREPL(replPane, getREPLContext);
+      // First REPL use hint — listen for Enter key in REPL pane
+      replPane.addEventListener('keydown', function _replHint(e) {
+        if (e.key === 'Enter' && !e.shiftKey) {
+          showHint('shift_enter', 'Tip: Use Shift+Enter for multiline in REPL');
+          replPane.removeEventListener('keydown', _replHint);
+        }
+      });
     }
 
     // Create Pivot panel once, refresh columns on each load
@@ -714,11 +752,27 @@ function createAppShell() {
       pivotInstance.refresh();
     }
 
-    // Create Notebook once
+    // Create Notebook once, with welcome template
     if (typeof createNotebook === 'function' && !notebookInstance) {
       notebookPane.innerHTML = '';
       notebookInstance = createNotebook(notebookPane, getREPLContext);
+
+      // Welcome cells
+      var welcomeMD = notebookInstance.addCell('md');
+      welcomeMD.setValue('# Welcome to WDK Notebook\n\nUse **JS**, **SQL**, or **Markdown** cells to explore your data.\nPress `Shift+Enter` to run a cell. Drag the \u2801\u2801\u2801 handle to reorder.');
+      welcomeMD.run();
+
+      var welcomeSQL = notebookInstance.addCell('sql');
+      welcomeSQL.setValue('SELECT * FROM df LIMIT 10');
+
+      var welcomeJS = notebookInstance.addCell('js');
+      welcomeJS.setValue('// Try: data.filter(r => r.salary > 50000).length');
     }
+
+    // Hide empty state messages
+    if (replEmptyState.parentNode) replEmptyState.parentNode.removeChild(replEmptyState);
+    if (pivotEmptyState.parentNode) pivotEmptyState.parentNode.removeChild(pivotEmptyState);
+    if (notebookEmptyState.parentNode) notebookEmptyState.parentNode.removeChild(notebookEmptyState);
 
     // Update status bar
     var headers = table._headers || [];
@@ -738,6 +792,19 @@ function createAppShell() {
     btnClear.disabled = false;
 
     showToast('\u2713 Loaded ' + currentFilename + ' \u2014 ' + rows.length.toLocaleString() + ' rows');
+
+    // First-load hint
+    showHint('ctrl_p', 'Tip: Use Ctrl+P to open the command palette');
+  }
+
+  // ─── Tooltip hints (shown once per key, persisted in localStorage) ──
+  var seenHints = {};
+  try { seenHints = JSON.parse(localStorage.getItem('wdk_seen_hints') || '{}'); } catch(_) {}
+  function showHint(key, msg) {
+    if (seenHints[key]) return;
+    seenHints[key] = true;
+    try { localStorage.setItem('wdk_seen_hints', JSON.stringify(seenHints)); } catch(_) {}
+    setTimeout(function() { showToast(msg, 4000); }, 1500);
   }
 
   // ─── Column type badges ───────────────────────────────────────────
@@ -848,7 +915,11 @@ function createAppShell() {
   var helpSections = [
     '<h2 style="margin:0 0 12px;color:#00e5ff;font-size:16px;">WDK Help</h2>',
     '<h3 style="color:#b967ff;font-size:12px;margin:14px 0 6px;">Getting Started</h3>',
-    '<p>Drop a <b>.csv</b>, <b>.tsv</b>, <b>.json</b>, or <b>.xlsx</b> file onto the import area, or click Browse.</p>',
+    '<p>Drop a <b>.csv</b>, <b>.tsv</b>, <b>.json</b>, or <b>.xlsx</b> file onto the import area, or click Browse. Files >100MB stream automatically.</p>',
+    '<h3 style="color:#b967ff;font-size:12px;margin:14px 0 6px;">Command Palette</h3>',
+    '<p>Press <b>Ctrl+P</b> to open the command palette. Fuzzy-search any action (import, export, switch tabs, etc).</p>',
+    '<h3 style="color:#b967ff;font-size:12px;margin:14px 0 6px;">Table Features</h3>',
+    '<p>Click a <b>column header</b> to sort. Click a <b>row</b> to select it (Shift+click for range). Selected rows show SUM/AVG in the summary bar. Null values display as gray italic.</p>',
     '<h3 style="color:#b967ff;font-size:12px;margin:14px 0 6px;">REPL Console</h3>',
     '<p>The bottom REPL panel lets you script against loaded data:</p>',
     '<ul style="padding-left:18px;margin:4px 0;">',
@@ -862,13 +933,19 @@ function createAppShell() {
     '<p>Switch to the <b>Pivot</b> tab to group and aggregate data. Supports: sum, count, avg, min, max, distinct, first, last, concat.</p>',
     '<h3 style="color:#b967ff;font-size:12px;margin:14px 0 6px;">SQL Queries</h3>',
     '<p>Use the <b>Notebook</b> tab to run SQL against loaded tables. Supports SELECT, WHERE, ORDER BY, GROUP BY, JOIN, window functions.</p>',
+    '<h3 style="color:#b967ff;font-size:12px;margin:14px 0 6px;">Notebook</h3>',
+    '<p>Supports <b>JS</b>, <b>SQL</b>, and <b>Markdown</b> cells. Drag cells to reorder. Stale outputs are grayed out after edits. Shift+Enter runs a cell.</p>',
+    '<h3 style="color:#b967ff;font-size:12px;margin:14px 0 6px;">Debug Panel</h3>',
+    '<p>The <b>Debug</b> tab provides: Network request log, Console capture, Storage viewer, and DOM table scraper in a unified dashboard.</p>',
     '<h3 style="color:#b967ff;font-size:12px;margin:14px 0 6px;">Keyboard Shortcuts</h3>',
     '<table style="border-collapse:collapse;width:100%;margin:4px 0;">',
+    '<tr><td style="padding:2px 8px;color:#00e5ff;">Ctrl+P</td><td>Command palette</td></tr>',
     '<tr><td style="padding:2px 8px;color:#00e5ff;">Ctrl+I</td><td>Import file</td></tr>',
     '<tr><td style="padding:2px 8px;color:#00e5ff;">Ctrl+E</td><td>Export as CSV</td></tr>',
     '<tr><td style="padding:2px 8px;color:#00e5ff;">Ctrl+L</td><td>Clear data</td></tr>',
     '<tr><td style="padding:2px 8px;color:#00e5ff;">F1</td><td>Toggle help</td></tr>',
-    '<tr><td style="padding:2px 8px;color:#00e5ff;">Click column header</td><td>Sort asc/desc</td></tr>',
+    '<tr><td style="padding:2px 8px;color:#00e5ff;">Click header</td><td>Sort asc/desc</td></tr>',
+    '<tr><td style="padding:2px 8px;color:#00e5ff;">Click row</td><td>Select (Shift+click for range)</td></tr>',
     '</table>',
     '<h3 style="color:#b967ff;font-size:12px;margin:14px 0 6px;">REPL Shortcuts</h3>',
     '<table style="border-collapse:collapse;width:100%;margin:4px 0;">',
@@ -1063,6 +1140,31 @@ function createAppShell() {
       clearData();
     }
   });
+
+  // ─── Command palette ─────────────────────────────────────────────
+
+  if (typeof createCommandPalette === 'function') {
+    var paletteActions = [
+      { id: 'import', label: 'Import File', shortcut: 'Ctrl+I', icon: '\u2913', handler: function() { var fi = importWrap.querySelector('input[type="file"]'); if (fi) fi.click(); } },
+      { id: 'export-csv', label: 'Export as CSV', shortcut: 'Ctrl+E', icon: '\u2191', handler: exportCSV },
+      { id: 'export-json', label: 'Export as JSON', icon: '\u2191', handler: exportJSON },
+      { id: 'clear', label: 'Clear Data', shortcut: 'Ctrl+L', icon: '\u2715', handler: clearData },
+      { id: 'scanner', label: 'File Scanner', icon: '\u26a0', handler: function() { btnScanner.click(); } },
+      { id: 'help', label: 'Help', shortcut: 'F1', icon: '?', handler: toggleHelp },
+      { id: 'settings', label: 'Settings', icon: '\u2699', handler: toggleSettings },
+      { id: 'tab-repl', label: 'Switch to REPL', icon: '\u25b6', handler: function() { replTab.click(); } },
+      { id: 'tab-pivot', label: 'Switch to Pivot', icon: '\u25b6', handler: function() { pivotTab.click(); } },
+      { id: 'tab-notebook', label: 'Switch to Notebook', icon: '\u25b6', handler: function() { notebookTab.click(); } },
+      { id: 'tab-build', label: 'Switch to Build', icon: '\u25b6', handler: function() { buildTab.click(); } },
+    ];
+    var palette = createCommandPalette(paletteActions);
+    document.addEventListener('keydown', function(e) {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'p') {
+        e.preventDefault();
+        palette.toggle();
+      }
+    });
+  }
 
   // ─── Public API ───────────────────────────────────────────────────
 

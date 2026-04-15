@@ -23,6 +23,21 @@ The inspect tools appear in the **Inspect tab** of the floating panel.
 
 ---
 
+## Debug Panel
+
+The **Debug Panel** is a unified interface that consolidates the inspect modules into a single bottom-tab UI with four sub-tabs:
+
+| Sub-tab | Description |
+|---------|-------------|
+| **Network** | Live request log — captures XHR and Fetch requests in real time |
+| **Console** | Captured `console.log`/`warn`/`error`/`info` output from the host page |
+| **Storage** | Cookie, localStorage, and sessionStorage viewer |
+| **DOM** | Table scraper — click-to-select or CSS-selector extraction |
+
+The Debug Panel (`src/ui/debug-panel.js`) provides a tabbed wrapper around the individual inspect modules described below. Instead of navigating to separate sections, you can switch between Network, Console, Storage, and DOM views in one place. Each sub-tab exposes the same functionality as the standalone module sections documented below.
+
+---
+
 ## DOM Scraper
 
 The DOM Scraper extracts data from HTML `<table>` elements on the host page into a WDK DataFrame.

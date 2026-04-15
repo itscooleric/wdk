@@ -20,6 +20,7 @@ var DK_BUILD_MODULES = [
   // Optional — Tier 1 (bookmarklet-friendly)
   { name: 'Redaction (hash/mask)', file: 'transforms/redact.js', size: 2051, tier: 'clean', required: false },
   { name: 'REPL', file: 'ui/repl.js', size: 6264, tier: 'scripting', required: false },
+  { name: 'Command Palette', file: 'ui/command-palette.js', size: 3500, tier: 'scripting', required: false },
 
   // Optional — Tier 2 (standalone HTML)
   { name: 'ZIP Parser', file: 'parsers/zip.js', size: 3318, tier: 'xlsx', required: false },
@@ -35,6 +36,7 @@ var DK_BUILD_MODULES = [
   { name: 'Network Interceptor', file: 'inspect/network-interceptor.js', size: 4506, tier: 'inspect', required: false },
   { name: 'Storage Viewer', file: 'inspect/storage-viewer.js', size: 2318, tier: 'inspect', required: false },
   { name: 'Console Capture', file: 'inspect/console-capture.js', size: 2032, tier: 'inspect', required: false },
+  { name: 'Debug Panel', file: 'ui/debug-panel.js', size: 5000, tier: 'inspect', required: false },
 ];
 
 var DK_BUILD_TIERS = {

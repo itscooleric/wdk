@@ -174,6 +174,21 @@ function injectTableStyles() {
     '  outline: 2px solid #00e5ff;',
     '  outline-offset: 2px;',
     '}',
+    '.dk-cell-null {',
+    '  color: #666688; font-style: italic; opacity: 0.7;',
+    '}',
+    '.dk-row-selected td { background: rgba(0, 229, 255, 0.08) !important; }',
+    '.dk-selection-bar {',
+    '  font-size: 10px; color: ' + DK_TABLE_THEME.textDim + ';',
+    '  padding: 4px 12px; display: none;',
+    '}',
+    '.dk-selection-bar button {',
+    '  background: transparent; color: ' + DK_TABLE_THEME.textDim + ';',
+    '  border: 1px solid ' + DK_TABLE_THEME.border + '; border-radius: 2px;',
+    '  padding: 1px 6px; font-size: 10px; cursor: pointer;',
+    '  font-family: inherit; margin-left: 8px;',
+    '}',
+    '.dk-selection-bar button:hover { color: ' + DK_TABLE_THEME.pink + '; border-color: ' + DK_TABLE_THEME.pink + '; }',
   ].join('\n');
   document.head.appendChild(style);
 }
@@ -193,6 +208,8 @@ function renderTable(container, df, onSort) {
   var sortAsc = true;
   var filterState = {};   // { colName: inputValue }
   var filterInputs = {};  // { colName: HTMLInputElement } — survives re-render
+  var selectedRows = new Set();  // indices into filteredRows
+  var lastClickedRow = null;     // for shift-range select
 
   function render(dt) {
     container.innerHTML = '';
@@ -271,7 +288,7 @@ function renderTable(container, df, onSort) {
     thNum.setAttribute('role', 'columnheader');
     headRow.appendChild(thNum);
 
-    headers.forEach(function (colName) {
+    headers.forEach(function (colName, colIdx) {
       var th = document.createElement('th');
       th.setAttribute('role', 'columnheader');
       th.setAttribute('tabindex', '0');
@@ -282,6 +299,29 @@ function renderTable(container, df, onSort) {
       }
       var label = document.createTextNode(colName);
       th.appendChild(label);
+
+      // Type badge tooltip
+      var colType = 'str';
+      if (typeof detectColumnType === 'function') {
+        var sampleVals = [];
+        for (var si = 0; si < Math.min(allRows.length, 100); si++) {
+          sampleVals.push(allRows[si][colIdx]);
+        }
+        colType = detectColumnType(sampleVals);
+      } else {
+        var numCount = 0;
+        var boolCount = 0;
+        var sampleLen = Math.min(allRows.length, 100);
+        for (var si = 0; si < sampleLen; si++) {
+          var sv = allRows[si][colIdx];
+          if (sv === null || sv === undefined || sv === '') continue;
+          if (!isNaN(parseFloat(sv)) && isFinite(sv)) numCount++;
+          if (sv === true || sv === false || sv === 'true' || sv === 'false') boolCount++;
+        }
+        if (boolCount > sampleLen * 0.5) colType = 'bool';
+        else if (numCount > sampleLen * 0.5) colType = 'num';
+      }
+      th.title = colName + ' (type: ' + colType + ')';
 
       if (sortCol === colName) {
         var arrow = document.createElement('span');
@@ -466,10 +506,43 @@ function renderTable(container, df, onSort) {
           td.setAttribute('role', 'gridcell');
           td.setAttribute('tabindex', '-1');
           var val = row[c];
-          td.textContent = val === null || val === undefined ? '' : String(val);
-          td.title = td.textContent;
+          if (val === null || val === undefined) {
+            td.textContent = 'null';
+            td.className = 'dk-cell-null';
+            td.title = 'null';
+          } else {
+            td.textContent = String(val);
+            td.title = td.textContent;
+          }
           tr.appendChild(td);
         }
+
+        if (selectedRows.has(i)) {
+          tr.classList.add('dk-row-selected');
+        }
+
+        (function (rowIdx) {
+          tr.addEventListener('click', function (ev) {
+            if (ev.shiftKey && lastClickedRow !== null) {
+              var lo = Math.min(lastClickedRow, rowIdx);
+              var hi = Math.max(lastClickedRow, rowIdx);
+              for (var ri = lo; ri <= hi; ri++) {
+                selectedRows.add(ri);
+              }
+            } else {
+              if (selectedRows.has(rowIdx)) {
+                selectedRows.delete(rowIdx);
+              } else {
+                selectedRows.add(rowIdx);
+              }
+            }
+            lastClickedRow = rowIdx;
+            lastStart = -1;
+            lastEnd = -1;
+            renderVisibleRows();
+            updateSelectionBar();
+          });
+        })(i);
 
         tbody.appendChild(tr);
       }
@@ -544,8 +617,63 @@ function renderTable(container, df, onSort) {
       }
     });
 
+    // Selection summary bar
+    var selectionBar = document.createElement('div');
+    selectionBar.className = 'dk-selection-bar';
+
+    function updateSelectionBar() {
+      if (selectedRows.size === 0) {
+        selectionBar.style.display = 'none';
+        return;
+      }
+      selectionBar.style.display = 'block';
+      var parts = [];
+      parts.push(selectedRows.size + ' rows selected');
+
+      // Compute SUM/AVG for numeric columns
+      for (var ci = 0; ci < headers.length; ci++) {
+        var sum = 0;
+        var count = 0;
+        var isNumeric = true;
+        var iter = selectedRows.values();
+        var next = iter.next();
+        while (!next.done) {
+          var rv = filteredRows[next.value];
+          if (rv) {
+            var nv = parseFloat(rv[ci]);
+            if (isNaN(nv)) { isNumeric = false; break; }
+            sum += nv;
+            count++;
+          }
+          next = iter.next();
+        }
+        if (isNumeric && count > 0) {
+          var avg = sum / count;
+          parts.push(headers[ci] + ': SUM=' + sum.toLocaleString(undefined, { maximumFractionDigits: 4 }) + ' AVG=' + avg.toLocaleString(undefined, { maximumFractionDigits: 4 }));
+        }
+      }
+
+      selectionBar.innerHTML = '';
+      var textSpan = document.createElement('span');
+      textSpan.textContent = parts.join(' | ');
+      selectionBar.appendChild(textSpan);
+
+      var clearSelBtn = document.createElement('button');
+      clearSelBtn.textContent = 'Clear selection';
+      clearSelBtn.addEventListener('click', function () {
+        selectedRows.clear();
+        lastClickedRow = null;
+        lastStart = -1;
+        lastEnd = -1;
+        renderVisibleRows();
+        updateSelectionBar();
+      });
+      selectionBar.appendChild(clearSelBtn);
+    }
+
     container.appendChild(wrap);
     container.style.position = 'relative';
+    container.appendChild(selectionBar);
     container.appendChild(badge);
     container.appendChild(clearBtn);
     container.appendChild(copyBtn);
