@@ -45,7 +45,9 @@ var SOURCE_FILES = [
   'transforms/sql-functions.js',
   'transforms/sql.js',
   'export/export.js',
+  'export/xlsx-writer.js',
   'util/detect-types.js',
+  'util/audit-log.js',
   'ui/panel.js',
   'ui/table.js',
   'ui/file-import.js',
@@ -405,6 +407,25 @@ function minifyJS(code) {
     aliases += 'var _sa=function(e,k,v){e.setAttribute(k,v)};';
     result = result.replace(/(\w+)\.setAttribute\(/g, '_sa($1,');
   }
+  // Shorten document.head
+  if (result.indexOf('document.head') !== -1) {
+    aliases += 'var _dh=document.head;';
+    result = result.replace(/document\.head/g, '_dh');
+  }
+  // Shorten window.location
+  if (result.indexOf('window.location') !== -1) {
+    aliases += 'var _wl=window.location;';
+    result = result.replace(/window\.location/g, '_wl');
+  }
+  // Strip long HTML help sections (replaced with shorter text in minimal builds)
+  result = result.replace(/<h3 style="[^"]*">[^<]*<\/h3>/g, '');
+  result = result.replace(/<table style="[^"]*">[\s\S]*?<\/table>/g, '');
+  // Shorten common repeated strings
+  result = result.replace(/'font-family:inherit'/g, "'font-family:inherit'");
+  result = result.replace(/font-family:"SF Mono","Fira Code","Consolas",monospace/g, 'font-family:inherit');
+  // Remove typeof checks for functions that will always exist in the bundle
+  result = result.replace(/if\(typeof (\w+)==='function'&&/g, 'if(');
+  result = result.replace(/if\(typeof (\w+)==="function"&&/g, 'if(');
   // Merge consecutive var declarations: var a=1;var b=2 -> var a=1,b=2
   result = result.replace(/;var /g, ',');
   if (aliases) {

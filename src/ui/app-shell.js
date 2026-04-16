@@ -5,7 +5,7 @@
  * Synthwave 84 dark theme. Zero external dependencies.
  */
 
-/* global createPanel, createFileImport, renderTable, createREPL, createPivotPanel, createNotebook, createBuildConfig, createDebugPanel, aggregate, pivot, execSQL, toCSV, toJSON, downloadBlob, createCommandPalette */
+/* global createPanel, createFileImport, renderTable, createREPL, createPivotPanel, createNotebook, createBuildConfig, createDebugPanel, aggregate, pivot, execSQL, toCSV, toJSON, downloadBlob, createCommandPalette, AuditLog, toXLSX, downloadXLSX */
 
 var DK_SHELL_THEME = {
   bg: '#0a0a1a',
@@ -363,10 +363,12 @@ function createAppShell() {
   var btnImport = makeToolbarBtn('\u2913', 'Import', 'Import a file', 'Ctrl+I');
   var btnExportCSV = makeToolbarBtn('\u2191', 'CSV', 'Export as CSV', 'Ctrl+E');
   var btnExportJSON = makeToolbarBtn('\u2191', 'JSON', 'Export as JSON');
+  var btnExportXLSX = makeToolbarBtn('\u2191', 'XLSX', 'Export as Excel');
   var btnClear = makeToolbarBtn('\u2715', 'Clear', 'Clear loaded data', 'Ctrl+L');
 
   btnExportCSV.disabled = true;
   btnExportJSON.disabled = true;
+  btnExportXLSX.disabled = true;
   btnClear.disabled = true;
 
   var colTypeContainer = document.createElement('div');
@@ -380,6 +382,7 @@ function createAppShell() {
   toolbar.appendChild(makeToolbarSep());
   toolbar.appendChild(btnExportCSV);
   toolbar.appendChild(btnExportJSON);
+  toolbar.appendChild(btnExportXLSX);
   toolbar.appendChild(makeToolbarSep());
   toolbar.appendChild(btnScanner);
   toolbar.appendChild(makeToolbarSep());
@@ -387,6 +390,16 @@ function createAppShell() {
   toolbar.appendChild(makeToolbarSep());
   toolbar.appendChild(btnHelp);
   toolbar.appendChild(btnSettings);
+
+  var btnAudit = makeToolbarBtn('\u2261', 'Audit', 'Download audit log (JSON Lines)');
+  btnAudit.addEventListener('click', function() {
+    if (typeof AuditLog !== 'undefined') {
+      AuditLog.download();
+      showToast('Audit log downloaded (' + AuditLog.count() + ' entries)');
+    }
+  });
+  toolbar.appendChild(btnAudit);
+
   toolbar.appendChild(colTypeContainer);
 
   // Keyboard navigation for toolbar: arrow keys move between buttons
@@ -789,9 +802,11 @@ function createAppShell() {
     // Enable export + clear
     btnExportCSV.disabled = false;
     btnExportJSON.disabled = false;
+    btnExportXLSX.disabled = false;
     btnClear.disabled = false;
 
     showToast('\u2713 Loaded ' + currentFilename + ' \u2014 ' + rows.length.toLocaleString() + ' rows');
+    if (typeof AuditLog !== 'undefined') { AuditLog.logImport(currentFilename, rows.length, headers.length, byteEst); }
 
     // First-load hint
     showHint('ctrl_p', 'Tip: Use Ctrl+P to open the command palette');
@@ -848,6 +863,7 @@ function createAppShell() {
     var name = (currentFilename || 'export').replace(/\.[^.]+$/, '') + '.csv';
     downloadBlob(csvContent, name, 'text/csv');
     showToast('\u2193 Exported ' + name);
+    if (typeof AuditLog !== 'undefined') { AuditLog.logExport(name, 'csv', (currentDf._rows || []).length); }
   }
 
   function exportJSON() {
@@ -863,11 +879,25 @@ function createAppShell() {
     var name = (currentFilename || 'export').replace(/\.[^.]+$/, '') + '.json';
     downloadBlob(jsonContent, name, 'application/json');
     showToast('\u2193 Exported ' + name);
+    if (typeof AuditLog !== 'undefined') { AuditLog.logExport(name, 'json', (currentDf._rows || []).length); }
+  }
+
+  function exportXLSX() {
+    if (!currentDf) return;
+    if (typeof toXLSX !== 'function') {
+      showToast('XLSX export not available');
+      return;
+    }
+    var name = (currentFilename || 'export').replace(/\.[^.]+$/, '') + '.xlsx';
+    downloadXLSX({ headers: currentDf._headers || [], rows: currentDf._rows || [] }, name);
+    showToast('\u2193 Exported ' + name);
+    if (typeof AuditLog !== 'undefined') { AuditLog.logExport(name, 'xlsx', (currentDf._rows || []).length); }
   }
 
   // ─── Clear ────────────────────────────────────────────────────────
 
   function clearData() {
+    if (typeof AuditLog !== 'undefined') { AuditLog.logClear(); }
     currentDf = null;
     currentFilename = null;
     currentSheets = null;
@@ -889,6 +919,7 @@ function createAppShell() {
 
     btnExportCSV.disabled = true;
     btnExportJSON.disabled = true;
+    btnExportXLSX.disabled = true;
     btnClear.disabled = true;
   }
 
@@ -902,6 +933,7 @@ function createAppShell() {
 
   btnExportCSV.addEventListener('click', exportCSV);
   btnExportJSON.addEventListener('click', exportJSON);
+  btnExportXLSX.addEventListener('click', exportXLSX);
   btnClear.addEventListener('click', clearData);
 
   // ─── Help panel ──────────────────────────────────────────────────
@@ -1148,6 +1180,7 @@ function createAppShell() {
       { id: 'import', label: 'Import File', shortcut: 'Ctrl+I', icon: '\u2913', handler: function() { var fi = importWrap.querySelector('input[type="file"]'); if (fi) fi.click(); } },
       { id: 'export-csv', label: 'Export as CSV', shortcut: 'Ctrl+E', icon: '\u2191', handler: exportCSV },
       { id: 'export-json', label: 'Export as JSON', icon: '\u2191', handler: exportJSON },
+      { id: 'export-xlsx', label: 'Export as XLSX', icon: '\u2191', handler: exportXLSX },
       { id: 'clear', label: 'Clear Data', shortcut: 'Ctrl+L', icon: '\u2715', handler: clearData },
       { id: 'scanner', label: 'File Scanner', icon: '\u26a0', handler: function() { btnScanner.click(); } },
       { id: 'help', label: 'Help', shortcut: 'F1', icon: '?', handler: toggleHelp },
@@ -1174,6 +1207,7 @@ function createAppShell() {
     clearData: clearData,
     exportCSV: exportCSV,
     exportJSON: exportJSON,
+    exportXLSX: exportXLSX,
   };
 }
 
