@@ -11,9 +11,11 @@
   │  parsers    csv, json, xlsx, zip   │
   │  transforms dataframe, sql, pivot  │
   │  functions  61 string/date/math    │
-  │  export     csv, json, tsv, file   │
+  │  export     csv, json, xlsx, file  │
   │  ui         table, repl, notebook  │
   │  inspect    dom, network, storage  │
+  │  scanner    preflight, pii, audit  │
+  │  sharepoint lists, docs, upload    │
   └────────────────────────────────────┘
        bookmarklet | standalone html
   ──────────────────────────────────────
@@ -23,6 +25,8 @@
 
 Browser-based data engineering workbench for **restricted environments** — government networks, air-gapped systems, locked-down enterprise. No install, no build step, no dependencies, no network required. Drag a CSV onto a single HTML file and start working.
 
+**41 modules · 14,230 lines · 344 tests · zero dependencies**
+
 ## Why
 
 Every restricted industry converges on the same unmet need: portable data analysis that works within compliance boundaries without installation. The 100,000+ Advana users on DoD networks, 30+ million Chromebook students, and countless hospital/banking analysts working in locked-down environments all face the same gap: "I have a CSV and I need answers, but I can't install anything."
@@ -31,36 +35,88 @@ WDK fills that gap.
 
 ## Modules
 
-| Module | Size | Description |
-|---|---|---|
-| **CSV Parser** | 2.0 KB | RFC 4180 compliant, streaming for >100MB files |
-| **JSON Parser** | 4.4 KB | Nested object flattening, array handling |
-| **ZIP Parser** | 3.3 KB | Pure JS zip extraction (for XLSX) |
-| **XLSX Parser** | 18.6 KB | Excel file reading via zip+xml, no deps |
-| **DataFrame** | 2.8 KB | Core data model with dedupe, filter, sort |
-| **Pipeline** | 3.5 KB | Undo/redo transform history |
-| **SQL Engine** | 27.3 KB | SELECT, JOIN, WHERE, GROUP BY, ORDER BY, LIMIT, window functions |
-| **SQL Functions** | 7.5 KB | 61 built-in functions (string, date, math, type, conditional) |
-| **Pivot Engine** | 6.8 KB | groupBy, aggregate, pivot with 9 agg functions |
-| **Type Detection** | 3.2 KB | Auto-detect column types |
-| **Redaction** | 2.1 KB | Hash and mask sensitive values |
-| **Export** | 3.4 KB | CSV, JSON, clipboard, file download |
-| **Table Renderer** | 8.3 KB | Virtual scroll, sort, copy TSV, null display, row selection |
-| **File Import** | 8.7 KB | Drag-drop with format detection |
-| **REPL** | 6.3 KB | Interactive JS console with DataFrame context |
-| **Command Palette** | 3.5 KB | Ctrl+P fuzzy-search action launcher |
-| **Pivot Panel** | 6.7 KB | Aggregate/pivot UI with multi-select |
-| **Notebook** | 9.6 KB | JS + SQL + Markdown cells, drag reorder, stale warnings |
-| **Debug Panel** | 5.0 KB | Unified Network/Console/Storage/DOM inspector |
-| **Build Config** | 5.0 KB | Module selector with size estimates |
-| **App Shell** | 29.7 KB | Tab navigation, file management, onboarding, theme |
-| **Panel System** | 9.3 KB | Draggable floating panel (bookmarklet mode) |
-| **DOM Scraper** | 5.6 KB | Extract tables/data from any page |
-| **Network Interceptor** | 4.5 KB | Capture XHR/fetch responses |
-| **Storage Viewer** | 2.3 KB | Browse localStorage/sessionStorage |
-| **Console Capture** | 2.0 KB | Intercept console.log output |
+### Parsers (4 modules)
 
-**Total: 26 modules, ~200 KB, zero dependencies.**
+| Module | Description |
+|---|---|
+| **CSV Parser** | RFC 4180 compliant, streaming for >100MB files, BOM handling |
+| **JSON Parser** | Nested object flattening, trailing comma recovery, error recovery |
+| **ZIP Parser** | Zero-dep zip reader using DecompressionStream API |
+| **XLSX Parser** | Excel OOXML: shared strings, multi-sheet, date handling, cell formats |
+
+### Transforms (7 modules)
+
+| Module | Description |
+|---|---|
+| **DataFrame** | Core data model — column/row ops, filter, sort, dedupe, toObjects |
+| **Pipeline** | Undo/redo transform history (50-state max), chainable operations |
+| **SQL Engine** | Full SELECT/JOIN/WHERE/GROUP BY/ORDER BY/LIMIT, window functions |
+| **SQL Functions** | 61 built-in functions (string, date, math, type, conditional) |
+| **Pivot Engine** | groupBy, aggregate, pivot with 9 aggregation functions |
+| **Redaction** | Blank, replace, mask, hash columns (djb2) for sensitive data |
+| **PII Scanner** | Two-pass detection: fast regex gate + Luhn/SSN validation |
+
+### Export (2 modules)
+
+| Module | Description |
+|---|---|
+| **Export** | CSV/JSON export, clipboard copy (TSV), file download |
+| **XLSX Writer** | Zero-dep XLSX generator: OOXML ZIP with shared strings, styles, CRC32 |
+
+### UI (11 modules)
+
+| Module | Description |
+|---|---|
+| **App Shell** | Tab navigation, file management, onboarding, theme toggle, menu |
+| **Table Renderer** | Virtual scrolling (1M+ rows), sort, row selection, TSV copy, null display |
+| **REPL** | Chrome DevTools-style console: command history, JSON tree expansion |
+| **Notebook** | JS + SQL + Markdown cells, drag-reorder, stale detection |
+| **File Import** | Drag-drop with auto format detection (CSV/JSON/XLSX/TSV) |
+| **Pivot Panel** | Interactive groupBy/aggregate/pivot controls |
+| **Command Palette** | Ctrl+P fuzzy-search action launcher with subsequence matching |
+| **Build Config** | Interactive module selector with size estimates and tier calculator |
+| **Debug Panel** | Network/Console/Storage/DOM inspector (unified debug tab) |
+| **Panel System** | Draggable floating panel for bookmarklet injection |
+| **Help / Settings** | F1 help modal, localStorage-backed preferences |
+
+### Inspect (4 modules)
+
+| Module | Description |
+|---|---|
+| **DOM Scraper** | Click-to-select HTML table extraction with CSS selector lookup |
+| **Network Interceptor** | Monkeypatch XHR/fetch, capture all requests (500-entry log) |
+| **Storage Viewer** | Browse cookies, localStorage, sessionStorage as DataFrames |
+| **Console Capture** | Intercept console.log/warn/error/info with argument stringify |
+
+### Scanner (1 module)
+
+| Module | Description |
+|---|---|
+| **Preflight Scanner** | File sanitization: base64 blobs, script tags, binary bytes, formula injection, entropy analysis, PII gate, manifest generation |
+
+### SharePoint (10 modules)
+
+| Module | Description |
+|---|---|
+| **SP Auth** | Digest-based auth via contextinfo, spFetch wrapper |
+| **SP Compat** | Version detection (2013/2016/2019/SPO) with feature matrix |
+| **SP Errors** | Error parsing, exponential backoff, throttle recovery, digest refresh |
+| **SP List Browser** | Enumerate lists, view item count/schema, 5000-item threshold handling |
+| **SP List Export** | Paginated export with $select/$filter/$orderby OData support |
+| **SP List Import** | CSV to list: column mapping, entity type resolution, batch POST |
+| **SP Doc Browser** | Document library: folder navigation, file preview, download |
+| **SP File Upload** | Chunked upload (10MB chunks, 250MB threshold), special char handling |
+| **SP SPFx** | Web part manifest generation, component packaging guide |
+| **SP ASPX** | Application page template for 2013+ farm deployments via _layouts |
+
+### Utility (2 modules)
+
+| Module | Description |
+|---|---|
+| **Type Detection** | Auto-detect column types: date (15 patterns), boolean, numeric, null |
+| **Audit Log** | Append-only audit trail per NIST 800-53 AU family, SHA-256, JSON Lines |
+
+**Total: 41 modules · 14,230 LOC · zero dependencies**
 
 ## SQL
 
@@ -109,27 +165,36 @@ Serve via PowerShell HttpListener for proper HTTP origin (unlocks File System Ac
 $l = New-Object System.Net.HttpListener
 $l.Prefixes.Add('http://localhost:8080/')
 $l.Start()
-# ... serve wiz.html
+# ... serve wdk.html
 ```
 
 ## Build
 
 ```bash
-node build.js                  # full build (all modules)
+node build.js                  # full build (all 41 modules)
 node build.js --tier=minimal   # minimal bookmarklet (<100KB)
 ```
 
-Outputs (full):
+### Build tiers
+
+| Tier | Modules | Size | Use case |
+|---|---|---|---|
+| **Minimal** | 9 core | <100KB | Bookmarklet injection — CSV parse, table, REPL, file import |
+| **Full** | 41 all | ~200KB | Standalone app — all formats, SQL, pivot, PII, SharePoint, debug |
+
+**Minimal tier includes:** CSV parser, DataFrame, Export, Type Detection, Table, File Import, REPL, App Shell, Panel System.
+
+**Full tier adds:** JSON/ZIP/XLSX parsers, SQL engine + functions, Pivot, Redaction, PII scanner, XLSX writer, Audit log, Notebook, Command palette, Build config, Debug panel, Preflight scanner, all 10 SharePoint modules, all 4 Inspect modules.
+
+Outputs:
 - `dist/wdk.js` — IIFE bundle (~200 KB)
 - `dist/wdk.html` — standalone HTML with JS inlined
 - `dist/wdk-bookmarklet.txt` — `javascript:` URI
 
-Outputs (minimal):
-- `dist/wdk-minimal.js` — core + REPL only (~80 KB)
+Minimal outputs:
+- `dist/wdk-minimal.js` — core + REPL (~80 KB)
 - `dist/wdk-minimal.html` — standalone HTML
 - `dist/wdk-minimal-bookmarklet.txt` — `javascript:` URI (<100 KB)
-
-Build tiers are configurable via the Build Configurator tab.
 
 ## Tests
 
@@ -138,29 +203,45 @@ Build tiers are configurable via the Build Configurator tab.
 for f in test/*.test.js; do node "$f"; done
 ```
 
-9 test suites:
-- `data-model.test.js` — DataFrame operations (34 tests)
-- `export.test.js` — CSV/JSON export (16 tests)
-- `parsers.test.js` — CSV/JSON parsing (23 tests)
-- `pivot.test.js` — Pivot engine (16 tests)
-- `sql.test.js` — SQL engine + JOINs (31 tests)
-- `sql-functions.test.js` — SQL functions (61 tests)
-- `window.test.js` — Window functions (18 tests)
-- `transforms.test.js` — Pipeline transforms (35 tests)
-- `xlsx.test.js` — XLSX parsing (32 tests)
+17 test suites, **344 total tests:**
+
+| Suite | Tests | Scope |
+|---|---|---|
+| `data-model.test.js` | 40 | DataFrame construction, column/row ops |
+| `xlsx.test.js` | 40 | XLSX parsing, dates, formulas, multi-sheet |
+| `transforms.test.js` | 39 | Pipeline, redaction, type detection |
+| `sql.test.js` | 37 | SELECT, WHERE, JOINs, GROUP BY, ORDER BY |
+| `xlsx-writer.test.js` | 35 | XLSX generation, shared strings, styles |
+| `window.test.js` | 26 | Window function parsing and execution |
+| `parsers.test.js` | 26 | CSV/JSON/XLSX parsing, error recovery, BOM |
+| `pivot.test.js` | 19 | groupBy, aggregate, pivot operations |
+| `export.test.js` | 18 | CSV/JSON export formatting, edge cases |
+| `audit-log.test.js` | 14 | Audit trail, session IDs, NIST compliance |
+| `ps-audit.test.js` | 12 | PowerShell audit integration |
+| `e2e-window-functions.test.js` | 11 | E2E: ROW_NUMBER, RANK, LAG, LEAD |
+| `e2e-csv-sql.test.js` | 9 | E2E: CSV parse → SQL query pipeline |
+| `e2e-pii-scanner.test.js` | 9 | E2E: PII detection with false positives |
+| `e2e-xlsx-roundtrip.test.js` | 9 | E2E: XLSX write → read roundtrip |
+| `pii-scanner.test.js` | — | Integrated in e2e-pii-scanner |
+| `sql-functions.test.js` | — | Integrated in sql.test.js |
 
 ## Architecture
 
 ```
 src/
-├── parsers/          CSV, JSON, ZIP, XLSX parsing
-├── transforms/       DataFrame, Pipeline, SQL, Pivot, Redaction, SQL Functions
-├── export/           CSV, JSON, clipboard, file download
-├── ui/               Table, REPL, Notebook, Pivot Panel, Build Config, App Shell
-└── inspect/          DOM Scraper, Network Interceptor, Storage Viewer, Console Capture
+├── parsers/          CSV, JSON, ZIP, XLSX
+├── transforms/       DataFrame, Pipeline, SQL, SQL Functions, Pivot, Redaction, PII Scanner
+├── export/           CSV/JSON export, XLSX writer
+├── ui/               Table, REPL, Notebook, Pivot Panel, Command Palette,
+│                     Build Config, Debug Panel, App Shell, Panel, File Import
+├── inspect/          DOM Scraper, Network Interceptor, Storage Viewer, Console Capture
+├── scanner/          Preflight Scanner (base64, scripts, binary, formulas, entropy, PII)
+├── sharepoint/       Auth, Compat, Errors, List Browser/Export/Import,
+│                     Doc Browser, File Upload, SPFx, ASPX
+└── util/             Type Detection, Audit Log
 ```
 
-Zero dependencies. Zero build tools required (build.js is vanilla Node). Every module is a standalone JS file that works in browser or Node. The build script concatenates them into an IIFE.
+Zero dependencies. Zero build tools required (`build.js` is vanilla Node). Every module is a standalone JS file that works in browser or Node. The build script concatenates them into an IIFE.
 
 ## Keyboard Shortcuts
 
@@ -175,10 +256,17 @@ Zero dependencies. Zero build tools required (build.js is vanilla Node). Every m
 | Click header | Sort column (asc → desc → none) |
 | Click row | Select row (Shift+click for range) |
 
-## Roadmap
+## Docs
 
-- **Sprint C** — PowerShell SFTP transfer engine (SSH.NET, PII gate, audit logging)
-- **Sprint E** — SharePoint REST integration (lists as tables, document libraries as folders)
+Detailed guides in `docs/`:
+- [Getting Started](docs/getting-started.md)
+- [Module Ontology](docs/module-ontology.md)
+- [SQL Reference](docs/sql-reference.md)
+- [REPL & Notebook](docs/repl-notebook-guide.md)
+- [Inspect Tools](docs/inspect-guide.md)
+- [Preflight Scanner](docs/scanner-guide.md)
+- [SharePoint Integration](docs/sharepoint-guide.md)
+- [Deployment Guide](docs/deployment-guide.md)
 
 ## License
 
