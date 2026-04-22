@@ -73,7 +73,10 @@ var SOURCE_FILES = [
   'inspect/network-interceptor.js',
   'inspect/storage-viewer.js',
   'inspect/console-capture.js',
-  'inspect/page-explorer.js'
+  'inspect/page-explorer.js',
+  'inspect/var-discovery.js',
+  'export/docx-writer.js',
+  'export/classification.js'
 ];
 
 // --- Read and clean source files ---
