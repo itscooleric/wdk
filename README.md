@@ -11,9 +11,9 @@
   │  parsers    csv, json, xlsx, zip   │
   │  transforms dataframe, sql, pivot  │
   │  functions  61 string/date/math    │
-  │  export     csv, json, xlsx, file  │
-  │  ui         table, repl, notebook  │
-  │  inspect    dom, network, storage  │
+  │  export     csv, json, xlsx, docx  │
+  │  ui         table, repl, robo     │
+  │  inspect    dom, network, explore │
   │  scanner    preflight, pii, audit  │
   │  sharepoint lists, docs, upload    │
   └────────────────────────────────────┘
@@ -25,7 +25,7 @@
 
 Browser-based data engineering workbench for **restricted environments** — government networks, air-gapped systems, locked-down enterprise. No install, no build step, no dependencies, no network required. Drag a CSV onto a single HTML file and start working.
 
-**41 modules · 14,230 lines · 344 tests · zero dependencies**
+**47 modules · 17,000+ lines · 344+ tests · zero dependencies**
 
 ## Why
 
@@ -56,14 +56,23 @@ WDK fills that gap.
 | **Redaction** | Blank, replace, mask, hash columns (djb2) for sensitive data |
 | **PII Scanner** | Two-pass detection: fast regex gate + Luhn/SSN validation |
 
-### Export (2 modules)
+### Parsers — DOCX (1 module)
+
+| Module | Description |
+|---|---|
+| **DOCX Reader** | Parse .docx files — extract text, tables, headings, metadata from OOXML |
+
+### Export (5 modules)
 
 | Module | Description |
 |---|---|
 | **Export** | CSV/JSON export, clipboard copy (TSV), file download |
 | **XLSX Writer** | Zero-dep XLSX generator: OOXML ZIP with shared strings, styles, CRC32 |
+| **DOCX Writer** | Zero-dep DOCX generator: OOXML ZIP with headings, tables, lists, banners |
+| **Classification** | CAPCO-style markings: wrap CSV/JSON/text/DOCX with classification banners |
+| **NIPR-Safe Export** | CDS-safe export mode: sanitize, validate, strip base64/internal IPs |
 
-### UI (11 modules)
+### UI (12 modules)
 
 | Module | Description |
 |---|---|
@@ -71,15 +80,16 @@ WDK fills that gap.
 | **Table Renderer** | Virtual scrolling (1M+ rows), sort, row selection, TSV copy, null display |
 | **REPL** | Chrome DevTools-style console: command history, JSON tree expansion |
 | **Notebook** | JS + SQL + Markdown cells, drag-reorder, stale detection |
-| **File Import** | Drag-drop with auto format detection (CSV/JSON/XLSX/TSV) |
+| **File Import** | Drag-drop with auto format detection (CSV/JSON/XLSX/TSV/DOCX) |
 | **Pivot Panel** | Interactive groupBy/aggregate/pivot controls |
 | **Command Palette** | Ctrl+P fuzzy-search action launcher with subsequence matching |
 | **Build Config** | Interactive module selector with size estimates and tier calculator |
-| **Debug Panel** | Network/Console/Storage/DOM inspector (unified debug tab) |
+| **Debug Panel** | Network/Console/Storage/DOM/Explore inspector (unified debug tab) |
 | **Panel System** | Draggable floating panel for bookmarklet injection |
 | **Help / Settings** | F1 help modal, localStorage-backed preferences |
+| **Robo** | Browser automation: JSON actions → Playwright/Selenium/Cypress scripts, live recording |
 
-### Inspect (4 modules)
+### Inspect (6 modules)
 
 | Module | Description |
 |---|---|
@@ -87,6 +97,8 @@ WDK fills that gap.
 | **Network Interceptor** | Monkeypatch XHR/fetch, capture all requests (500-entry log) |
 | **Storage Viewer** | Browse cookies, localStorage, sessionStorage as DataFrames |
 | **Console Capture** | Intercept console.log/warn/error/info with argument stringify |
+| **Page Explorer** | Mini DevTools: page globals, DOM summary, performance, event listeners |
+| **Variable Discovery** | Find app data: framework detection (9), React/Vue state, JSON-LD, hidden inputs |
 
 ### Scanner (1 module)
 
@@ -116,7 +128,7 @@ WDK fills that gap.
 | **Type Detection** | Auto-detect column types: date (15 patterns), boolean, numeric, null |
 | **Audit Log** | Append-only audit trail per NIST 800-53 AU family, SHA-256, JSON Lines |
 
-**Total: 41 modules · 14,230 LOC · zero dependencies**
+**Total: 47 modules · 17,000+ LOC · zero dependencies**
 
 ## SQL
 
@@ -171,7 +183,7 @@ $l.Start()
 ## Build
 
 ```bash
-node build.js                  # full build (all 41 modules)
+node build.js                  # full build (all 47 modules)
 node build.js --tier=minimal   # minimal bookmarklet (<100KB)
 ```
 
@@ -180,7 +192,7 @@ node build.js --tier=minimal   # minimal bookmarklet (<100KB)
 | Tier | Modules | Size | Use case |
 |---|---|---|---|
 | **Minimal** | 9 core | <100KB | Bookmarklet injection — CSV parse, table, REPL, file import |
-| **Full** | 41 all | ~200KB | Standalone app — all formats, SQL, pivot, PII, SharePoint, debug |
+| **Full** | 47 all | ~550KB | Standalone app — all formats, SQL, pivot, PII, DOCX, Robo, SharePoint, debug |
 
 **Minimal tier includes:** CSV parser, DataFrame, Export, Type Detection, Table, File Import, REPL, App Shell, Panel System.
 
@@ -231,10 +243,11 @@ for f in test/*.test.js; do node "$f"; done
 src/
 ├── parsers/          CSV, JSON, ZIP, XLSX
 ├── transforms/       DataFrame, Pipeline, SQL, SQL Functions, Pivot, Redaction, PII Scanner
-├── export/           CSV/JSON export, XLSX writer
+├── export/           CSV/JSON export, XLSX writer, DOCX writer, Classification, NIPR-Safe
 ├── ui/               Table, REPL, Notebook, Pivot Panel, Command Palette,
-│                     Build Config, Debug Panel, App Shell, Panel, File Import
-├── inspect/          DOM Scraper, Network Interceptor, Storage Viewer, Console Capture
+│                     Build Config, Debug Panel, App Shell, Panel, File Import, Robo
+├── inspect/          DOM Scraper, Network Interceptor, Storage Viewer, Console Capture,
+│                     Page Explorer, Variable Discovery
 ├── scanner/          Preflight Scanner (base64, scripts, binary, formulas, entropy, PII)
 ├── sharepoint/       Auth, Compat, Errors, List Browser/Export/Import,
 │                     Doc Browser, File Upload, SPFx, ASPX
@@ -258,15 +271,28 @@ Zero dependencies. Zero build tools required (`build.js` is vanilla Node). Every
 
 ## Docs
 
-Detailed guides in `docs/`:
-- [Getting Started](docs/getting-started.md)
-- [Module Ontology](docs/module-ontology.md)
-- [SQL Reference](docs/sql-reference.md)
-- [REPL & Notebook](docs/repl-notebook-guide.md)
-- [Inspect Tools](docs/inspect-guide.md)
-- [Preflight Scanner](docs/scanner-guide.md)
-- [SharePoint Integration](docs/sharepoint-guide.md)
-- [Deployment Guide](docs/deployment-guide.md)
+Detailed guides in `docs/` (Diataxis framework):
+
+**Tutorials:**
+- [Getting Started Tutorial](docs/tutorial.md) — first CSV import through SQL query to export
+
+**How-to Guides:**
+- [Import Data](docs/how-to/import-data.md) — CSV, JSON, XLSX, DOCX, drag-drop, DOM scraping
+- [Inspect a Page](docs/how-to/inspect-page.md) — network, console, storage, DOM, explore
+- [Export Data](docs/how-to/export-data.md) — CSV, JSON, XLSX, DOCX, clipboard, audit log
+
+**Reference:**
+- [Module Reference](docs/reference/modules.md) — all 47 modules with descriptions
+- [SQL Reference](docs/reference/sql.md) — full syntax, 61+ functions, window functions
+
+**Explanation:**
+- [Architecture](docs/explanation/architecture.md) — tiers, zero-dep constraint, build system
+
+**Research:**
+- [Web Variable Discovery](docs/web-var-discovery.md) — techniques for finding app data in web pages
+
+**Legacy docs** (being migrated):
+- [Getting Started](docs/getting-started.md) | [Module Ontology](docs/module-ontology.md) | [REPL & Notebook](docs/repl-notebook-guide.md) | [Inspect Tools](docs/inspect-guide.md) | [Preflight Scanner](docs/scanner-guide.md) | [SharePoint](docs/sharepoint-guide.md) | [Deployment](docs/deployment-guide.md)
 
 ## License
 
