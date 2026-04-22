@@ -15762,6 +15762,824 @@ function _downloadText(content, filename, mimeType) {
   }
 })();
 
+// --- export/nipr-safe.js ---
+
+/** WDK NIPR-Safe Export — clean output for cross-domain transfer (NIPR->SIPR). */
+(function () {
+  'use strict';
+  var root = (typeof window !== 'undefined') ? window : {};
+  var DK = root.DK = root.DK || {};
+  var SAFE_FORMATS = ['csv', 'json', 'xml', 'text'];
+  var UNSAFE_PATTERNS = {
+    base64: /[A-Za-z0-9+\/]{64,}={0,2}/g,
+    dataUri: /data:[a-z]+\/[a-z0-9.+-]+;base64,[A-Za-z0-9+\/=]+/gi,
+    internalIp: /\b(10\.\d{1,3}\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3}|172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3})\b/g,
+    scriptTag: /<script[\s>][\s\S]*?<\/script>/gi,
+    execContent: /<(script|iframe|object|embed|applet)[\s>]/gi
+  };
+  function getClassification(opts) {
+    opts = opts || {};
+    if (opts.classification) { return opts.classification; }
+    if (DK.classification && typeof DK.classification.getLevel === 'function') {
+      return DK.classification.getLevel();
+    }
+    return 'UNCLASSIFIED';
+  }
+  function sanitize(value) {
+    if (typeof value !== 'string') { return String(value); }
+    var s = value;
+    s = s.replace(UNSAFE_PATTERNS.dataUri, '[REDACTED:datauri]');
+    s = s.replace(UNSAFE_PATTERNS.base64, '[REDACTED:base64]');
+    s = s.replace(UNSAFE_PATTERNS.internalIp, '[REDACTED:internal-ip]');
+    s = s.replace(UNSAFE_PATTERNS.scriptTag, '');
+    s = s.replace(UNSAFE_PATTERNS.execContent, '');
+    return s;
+  }
+  function validate(data) {
+    var warnings = [];
+    var raw = typeof data === 'string' ? data : JSON.stringify(data);
+    var checks = [
+      ['base64', '_content', 'Contains base64 encoded data', 'high'],
+      ['dataUri', '_content', 'Contains data URI', 'high'],
+      ['internalIp', '_content', 'Contains internal/private IP address', 'medium'],
+      ['execContent', '_content', 'Contains executable content', 'high']
+    ];
+    for (var i = 0; i < checks.length; i++) {
+      var pat = UNSAFE_PATTERNS[checks[i][0]];
+      if (pat.test(raw)) {
+        warnings.push({ field: checks[i][1], issue: checks[i][2], severity: checks[i][3] });
+      }
+      pat.lastIndex = 0;
+    }
+    if (!/UNCLASSIFIED|CUI|CONFIDENTIAL|SECRET|TOP SECRET/.test(raw)) {
+      warnings.push({ field: '_banner', issue: 'Missing classification banner', severity: 'high' });
+    }
+    return { safe: warnings.length === 0, warnings: warnings };
+  }
+  function escapeCSV(val) {
+    var s = String(val);
+    return (s.indexOf(',') !== -1 || s.indexOf('"') !== -1 || s.indexOf('\n') !== -1)
+      ? '"' + s.replace(/"/g, '""') + '"' : s;
+  }
+  function escapeXML(val) {
+    return String(val).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+  function sanitizeDeep(obj) {
+    if (typeof obj === 'string') { return sanitize(obj); }
+    if (Array.isArray(obj)) {
+      var arr = [];
+      for (var i = 0; i < obj.length; i++) { arr.push(sanitizeDeep(obj[i])); }
+      return arr;
+    }
+    if (obj && typeof obj === 'object') {
+      var out = {};
+      for (var k in obj) {
+        if (obj.hasOwnProperty(k)) { out[k] = sanitizeDeep(obj[k]); }
+      }
+      return out;
+    }
+    return obj;
+  }
+  function exportData(data, format, options) {
+    var opts = options || {};
+    var clf = getClassification(opts);
+    var clean = sanitizeDeep(data);
+    var content, contentType, ext;
+    if (SAFE_FORMATS.indexOf(format) === -1) {
+      throw new Error('Unsupported format: ' + format + '. Safe formats: ' + SAFE_FORMATS.join(', '));
+    }
+    if (format === 'json') {
+      content = JSON.stringify({ classification: clf, exportedAt: new Date().toISOString(), data: clean }, null, 2);
+      contentType = 'application/json'; ext = 'json';
+    } else if (format === 'csv') {
+      var lines = [clf];
+      if (Array.isArray(clean) && clean.length > 0 && typeof clean[0] === 'object') {
+        var keys = Object.keys(clean[0]);
+        lines.push(keys.map(escapeCSV).join(','));
+        for (var r = 0; r < clean.length; r++) {
+          var row = [];
+          for (var c = 0; c < keys.length; c++) { row.push(escapeCSV(clean[r][keys[c]] || '')); }
+          lines.push(row.join(','));
+        }
+      } else { lines.push(String(clean)); }
+      lines.push(clf);
+      content = lines.join('\n'); contentType = 'text/csv'; ext = 'csv';
+    } else if (format === 'xml') {
+      var xl = ['<?xml version="1.0" encoding="UTF-8"?>', '<data classification="' + escapeXML(clf) + '">'];
+      var items = Array.isArray(clean) ? clean : [clean];
+      for (var xi = 0; xi < items.length; xi++) {
+        xl.push('  <row>');
+        if (typeof items[xi] === 'object' && items[xi] !== null) {
+          for (var xk in items[xi]) {
+            if (items[xi].hasOwnProperty(xk)) { xl.push('    <' + xk + '>' + escapeXML(items[xi][xk]) + '</' + xk + '>'); }
+          }
+        } else { xl.push('    <value>' + escapeXML(items[xi]) + '</value>'); }
+        xl.push('  </row>');
+      }
+      xl.push('</data>');
+      content = xl.join('\n'); contentType = 'application/xml'; ext = 'xml';
+    } else {
+      content = clf + '\n\n' + (typeof clean === 'string' ? clean : JSON.stringify(clean, null, 2)) + '\n\n' + clf;
+      contentType = 'text/plain'; ext = 'txt';
+    }
+    var filename = (opts.filename || 'export-' + Date.now()) + '.' + ext;
+    return { content: content, contentType: contentType, filename: filename, validation: validate(content) };
+  }
+  function exportCSV(headers, rows, options) {
+    var data = [];
+    for (var i = 0; i < rows.length; i++) {
+      var obj = {};
+      for (var h = 0; h < headers.length; h++) {
+        obj[headers[h]] = (rows[i] && rows[i][h] !== undefined) ? rows[i][h] : '';
+      }
+      data.push(obj);
+    }
+    return exportData(data, 'csv', options);
+  }
+  DK.niprSafe = {
+    SAFE_FORMATS: SAFE_FORMATS,
+    UNSAFE_PATTERNS: UNSAFE_PATTERNS,
+    validate: validate,
+    export: exportData,
+    exportCSV: exportCSV,
+    exportJSON: function (obj, opts) { return exportData(obj, 'json', opts); },
+    exportXML: function (obj, opts) { return exportData(obj, 'xml', opts); },
+    sanitize: sanitize
+  };
+})();
+
+// --- parsers/docx-reader.js ---
+
+/**
+ * WDK DOCX Reader — extracts text, tables, and metadata from .docx files.
+ * Reuses the existing ZIP reader at src/parsers/zip.js (unzip function).
+ * Zero dependencies, IIFE pattern, var only.
+ *
+ * API: DK.docxReader.parse(arrayBuffer) -> Promise<{text, paragraphs, tables, metadata}>
+ */
+(function() {
+  "use strict";
+
+  var DK = window.DK = window.DK || {};
+
+  // --- XML helpers (string-based, no DOMParser) ---
+
+  function findAll(xml, tag) {
+    var results = [];
+    var open = "<" + tag;
+    var close = "</" + tag + ">";
+    var selfClose = "/>";
+    var idx = 0;
+    while (idx < xml.length) {
+      var start = xml.indexOf(open, idx);
+      if (start === -1) break;
+      var afterTag = start + open.length;
+      var ch = xml.charAt(afterTag);
+      if (ch !== " " && ch !== ">" && ch !== "/") { idx = afterTag; continue; }
+      var endSelf = xml.indexOf(selfClose, afterTag);
+      var endClose = xml.indexOf(close, afterTag);
+      var end;
+      if (endClose === -1 && endSelf === -1) break;
+      if (endClose === -1) { end = endSelf + selfClose.length; }
+      else if (endSelf === -1) { end = endClose + close.length; }
+      else if (endSelf < endClose) {
+        var gt = xml.indexOf(">", afterTag);
+        if (gt === endSelf + 1) { end = endSelf + selfClose.length; }
+        else { end = endClose + close.length; }
+      } else { end = endClose + close.length; }
+      results.push(xml.substring(start, end));
+      idx = end;
+    }
+    return results;
+  }
+
+  function innerContent(xml, tag) {
+    var open = "<" + tag;
+    var start = xml.indexOf(open);
+    if (start === -1) return "";
+    var gt = xml.indexOf(">", start + open.length);
+    if (gt === -1) return "";
+    if (xml.charAt(gt - 1) === "/") return "";
+    var close = "</" + tag + ">";
+    var end = xml.indexOf(close, gt);
+    if (end === -1) return "";
+    return xml.substring(gt + 1, end);
+  }
+
+  function attrVal(xml, attr) {
+    var pat = attr + '="';
+    var idx = xml.indexOf(pat);
+    if (idx === -1) return "";
+    var start = idx + pat.length;
+    var end = xml.indexOf('"', start);
+    if (end === -1) return "";
+    return xml.substring(start, end);
+  }
+
+  function extractText(xml) {
+    var parts = [];
+    var wts = findAll(xml, "w:t");
+    for (var i = 0; i < wts.length; i++) {
+      var gt = wts[i].indexOf(">");
+      if (gt === -1) continue;
+      var close = wts[i].lastIndexOf("</w:t>");
+      if (close === -1) continue;
+      parts.push(wts[i].substring(gt + 1, close));
+    }
+    return parts.join("");
+  }
+
+  // --- DOCX parsing ---
+
+  function parseParagraphs(docXml) {
+    var paragraphs = [];
+    var pBlocks = findAll(docXml, "w:p");
+    for (var i = 0; i < pBlocks.length; i++) {
+      var p = pBlocks[i];
+      var style = "Normal";
+      var pStyleIdx = p.indexOf("<w:pStyle");
+      if (pStyleIdx !== -1) {
+        var val = attrVal(p.substring(pStyleIdx), "w:val");
+        if (val) style = val;
+      }
+      var text = extractText(p);
+      paragraphs.push({ text: text, style: style });
+    }
+    return paragraphs;
+  }
+
+  function parseTables(docXml) {
+    var tables = [];
+    var tblBlocks = findAll(docXml, "w:tbl");
+    for (var i = 0; i < tblBlocks.length; i++) {
+      var tbl = tblBlocks[i];
+      var rows = findAll(tbl, "w:tr");
+      var rowData = [];
+      for (var r = 0; r < rows.length; r++) {
+        var cells = findAll(rows[r], "w:tc");
+        var cellTexts = [];
+        for (var c = 0; c < cells.length; c++) {
+          cellTexts.push(extractText(cells[c]));
+        }
+        rowData.push(cellTexts);
+      }
+      var headers = rowData.length > 0 ? rowData[0] : [];
+      var dataRows = rowData.length > 1 ? rowData.slice(1) : [];
+      tables.push({ headers: headers, rows: dataRows });
+    }
+    return tables;
+  }
+
+  function parseMetadata(coreXml) {
+    if (!coreXml) return { title: "", author: "" };
+    return {
+      title: innerContent(coreXml, "dc:title") || innerContent(coreXml, "dcterms:title") || "",
+      author: innerContent(coreXml, "dc:creator") || innerContent(coreXml, "cp:lastModifiedBy") || ""
+    };
+  }
+
+  // --- Main API ---
+
+  DK.docxReader = {
+    parse: function(arrayBuffer) {
+      return unzip(arrayBuffer).then(function(entries) {
+        var docXml = "";
+        var coreXml = "";
+        var decoder = new TextDecoder();
+
+        if (entries.has("word/document.xml")) {
+          docXml = decoder.decode(entries.get("word/document.xml"));
+        }
+        if (entries.has("docProps/core.xml")) {
+          coreXml = decoder.decode(entries.get("docProps/core.xml"));
+        }
+
+        if (!docXml) {
+          return { text: "", paragraphs: [], tables: [], metadata: { title: "", author: "" } };
+        }
+
+        var paragraphs = parseParagraphs(docXml);
+        var tables = parseTables(docXml);
+        var metadata = parseMetadata(coreXml);
+        var textParts = [];
+        for (var i = 0; i < paragraphs.length; i++) {
+          textParts.push(paragraphs[i].text);
+        }
+
+        return {
+          text: textParts.join("\n"),
+          paragraphs: paragraphs,
+          tables: tables,
+          metadata: metadata
+        };
+      })["catch"](function() {
+        return { text: "", paragraphs: [], tables: [], metadata: { title: "", author: "" } };
+      });
+    }
+  };
+
+})();
+
+// --- ui/robo.js ---
+
+/**
+ * WDK Robo — browser automation script builder
+ * Define actions as JSON, export as Playwright / Selenium / Cypress scripts.
+ */
+(function () {
+  'use strict';
+  if (!window.DK) { window.DK = {}; }
+
+  /* ------------------------------------------------------------------ */
+  /*  Helpers                                                            */
+  /* ------------------------------------------------------------------ */
+
+  function escStr(s) {
+    return s.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, '\\n');
+  }
+
+  function escPy(s) {
+    return s.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n');
+  }
+
+  function indent(lines, n) {
+    var pad = '';
+    for (var i = 0; i < n; i++) { pad += ' '; }
+    return lines.map(function (l) { return pad + l; });
+  }
+
+  /* ------------------------------------------------------------------ */
+  /*  buildSelector                                                      */
+  /* ------------------------------------------------------------------ */
+
+  function buildSelector(el) {
+    if (!el || el.nodeType !== 1) { return ''; }
+
+    // 1. id
+    if (el.id) { return '#' + CSS.escape(el.id); }
+
+    // 2. data-testid
+    var tid = el.getAttribute('data-testid');
+    if (tid) { return '[data-testid="' + tid + '"]'; }
+
+    // 3. tag.class combo — check uniqueness
+    var tag = el.tagName.toLowerCase();
+    if (el.className && typeof el.className === 'string') {
+      var cls = el.className.trim().split(/\s+/).map(function (c) { return '.' + CSS.escape(c); }).join('');
+      var candidate = tag + cls;
+      if (document.querySelectorAll(candidate).length === 1) { return candidate; }
+    }
+
+    // 4. nth-child path
+    var parts = [];
+    var cur = el;
+    while (cur && cur !== document.body && cur !== document.documentElement) {
+      var p = cur.parentElement;
+      if (!p) { break; }
+      var children = p.children;
+      var idx = 1;
+      for (var i = 0; i < children.length; i++) {
+        if (children[i] === cur) { idx = i + 1; break; }
+      }
+      parts.unshift(cur.tagName.toLowerCase() + ':nth-child(' + idx + ')');
+      cur = p;
+    }
+    return parts.join(' > ');
+  }
+
+  /* ------------------------------------------------------------------ */
+  /*  Playwright export                                                  */
+  /* ------------------------------------------------------------------ */
+
+  function toPlaywright(actions, options) {
+    var opts = options || {};
+    var name = opts.name || 'Automation Script';
+    var timeout = opts.timeout || 30000;
+    var lines = [];
+
+    lines.push("const { test, expect } = require('@playwright/test');");
+    lines.push('');
+    if (opts.baseURL) {
+      lines.push("test.use({ baseURL: '" + escStr(opts.baseURL) + "' });");
+      lines.push('');
+    }
+    lines.push("test('" + escStr(name) + "', async ({ page }) => {");
+    lines.push("  test.setTimeout(" + timeout + ");");
+
+    var extractIdx = 0;
+    for (var i = 0; i < actions.length; i++) {
+      var a = actions[i];
+      var s = a.selector ? escStr(a.selector) : '';
+      switch (a.action) {
+        case 'navigate':
+          lines.push("  await page.goto('" + escStr(a.url) + "');");
+          break;
+        case 'wait':
+          if (a.selector) {
+            lines.push("  await page.waitForSelector('" + s + "', { timeout: " + (a.timeout || timeout) + " });");
+          } else {
+            lines.push("  await page.waitForTimeout(" + (a.ms || 1000) + ");");
+          }
+          break;
+        case 'click':
+          lines.push("  await page.click('" + s + "');");
+          break;
+        case 'type':
+          lines.push("  await page.fill('" + s + "', '" + escStr(a.value || '') + "');");
+          break;
+        case 'select':
+          lines.push("  await page.selectOption('" + s + "', '" + escStr(a.value || '') + "');");
+          break;
+        case 'press':
+          lines.push("  await page.keyboard.press('" + escStr(a.key || a.value || '') + "');");
+          break;
+        case 'scroll':
+          if (a.selector) {
+            lines.push("  await page.locator('" + s + "').scrollIntoViewIfNeeded();");
+          } else {
+            lines.push("  await page.evaluate(() => window.scrollBy(0, " + (a.y || a.pixels || 500) + "));");
+          }
+          break;
+        case 'screenshot':
+          lines.push("  await page.screenshot({ path: '" + escStr(a.name || 'screenshot_' + i) + ".png' });");
+          break;
+        case 'extract':
+          var varName = a.as || 'extracted_' + (extractIdx++);
+          lines.push("  const " + varName + " = await page.locator('" + s + "').textContent();");
+          break;
+        case 'assert':
+          if (a.text !== undefined) {
+            lines.push("  await expect(page.locator('" + s + "')).toHaveText('" + escStr(a.text) + "');");
+          } else {
+            lines.push("  await expect(page.locator('" + s + "')).toBeVisible();");
+          }
+          break;
+        default:
+          lines.push("  // unsupported action: " + (a.action || 'unknown'));
+      }
+    }
+
+    lines.push('});');
+    lines.push('');
+    return lines.join('\n');
+  }
+
+  /* ------------------------------------------------------------------ */
+  /*  Selenium (Python) export                                           */
+  /* ------------------------------------------------------------------ */
+
+  function toSelenium(actions, options) {
+    var opts = options || {};
+    var lines = [];
+
+    lines.push('from selenium import webdriver');
+    lines.push('from selenium.webdriver.common.by import By');
+    lines.push('from selenium.webdriver.common.keys import Keys');
+    lines.push('from selenium.webdriver.support.ui import WebDriverWait, Select');
+    lines.push('from selenium.webdriver.support import expected_conditions as EC');
+    lines.push('import time');
+    lines.push('');
+    lines.push('driver = webdriver.Chrome()');
+    lines.push('driver.implicitly_wait(' + ((opts.timeout || 30000) / 1000) + ')');
+    lines.push('');
+
+    for (var i = 0; i < actions.length; i++) {
+      var a = actions[i];
+      var s = a.selector ? escPy(a.selector) : '';
+      switch (a.action) {
+        case 'navigate':
+          lines.push('driver.get("' + escPy(a.url) + '")');
+          break;
+        case 'wait':
+          if (a.selector) {
+            lines.push('WebDriverWait(driver, ' + ((a.timeout || 10000) / 1000) + ').until(');
+            lines.push('    EC.presence_of_element_located((By.CSS_SELECTOR, "' + s + '"))');
+            lines.push(')');
+          } else {
+            lines.push('time.sleep(' + ((a.ms || 1000) / 1000) + ')');
+          }
+          break;
+        case 'click':
+          lines.push('driver.find_element(By.CSS_SELECTOR, "' + s + '").click()');
+          break;
+        case 'type':
+          lines.push('el = driver.find_element(By.CSS_SELECTOR, "' + s + '")');
+          lines.push('el.clear()');
+          lines.push('el.send_keys("' + escPy(a.value || '') + '")');
+          break;
+        case 'select':
+          lines.push('Select(driver.find_element(By.CSS_SELECTOR, "' + s + '")).select_by_value("' + escPy(a.value || '') + '")');
+          break;
+        case 'press':
+          lines.push('driver.find_element(By.TAG_NAME, "body").send_keys(Keys.' + (a.key || a.value || 'ENTER').toUpperCase() + ')');
+          break;
+        case 'scroll':
+          if (a.selector) {
+            lines.push('el = driver.find_element(By.CSS_SELECTOR, "' + s + '")');
+            lines.push('driver.execute_script("arguments[0].scrollIntoView(true);", el)');
+          } else {
+            lines.push('driver.execute_script("window.scrollBy(0, ' + (a.y || a.pixels || 500) + ')")');
+          }
+          break;
+        case 'screenshot':
+          lines.push('driver.save_screenshot("' + escPy(a.name || 'screenshot_' + i) + '.png")');
+          break;
+        case 'extract':
+          lines.push((a.as || 'extracted') + ' = driver.find_element(By.CSS_SELECTOR, "' + s + '").text');
+          break;
+        case 'assert':
+          if (a.text !== undefined) {
+            lines.push('assert driver.find_element(By.CSS_SELECTOR, "' + s + '").text == "' + escPy(a.text) + '"');
+          } else {
+            lines.push('assert driver.find_element(By.CSS_SELECTOR, "' + s + '").is_displayed()');
+          }
+          break;
+        default:
+          lines.push('# unsupported action: ' + (a.action || 'unknown'));
+      }
+    }
+
+    lines.push('');
+    lines.push('driver.quit()');
+    lines.push('');
+    return lines.join('\n');
+  }
+
+  /* ------------------------------------------------------------------ */
+  /*  Cypress export                                                     */
+  /* ------------------------------------------------------------------ */
+
+  function toCypress(actions, options) {
+    var opts = options || {};
+    var name = opts.name || 'Automation Script';
+    var lines = [];
+
+    lines.push("describe('" + escStr(name) + "', () => {");
+    lines.push("  it('runs the automation', () => {");
+
+    for (var i = 0; i < actions.length; i++) {
+      var a = actions[i];
+      var s = a.selector ? escStr(a.selector) : '';
+      switch (a.action) {
+        case 'navigate':
+          lines.push("    cy.visit('" + escStr(a.url) + "');");
+          break;
+        case 'wait':
+          if (a.selector) {
+            lines.push("    cy.get('" + s + "', { timeout: " + (a.timeout || 10000) + " }).should('exist');");
+          } else {
+            lines.push("    cy.wait(" + (a.ms || 1000) + ");");
+          }
+          break;
+        case 'click':
+          lines.push("    cy.get('" + s + "').click();");
+          break;
+        case 'type':
+          lines.push("    cy.get('" + s + "').clear().type('" + escStr(a.value || '') + "');");
+          break;
+        case 'select':
+          lines.push("    cy.get('" + s + "').select('" + escStr(a.value || '') + "');");
+          break;
+        case 'press':
+          lines.push("    cy.get('body').type('{" + (a.key || a.value || 'enter').toLowerCase() + "}');");
+          break;
+        case 'scroll':
+          if (a.selector) {
+            lines.push("    cy.get('" + s + "').scrollIntoView();");
+          } else {
+            lines.push("    cy.scrollTo(0, " + (a.y || a.pixels || 500) + ");");
+          }
+          break;
+        case 'screenshot':
+          lines.push("    cy.screenshot('" + escStr(a.name || 'screenshot_' + i) + "');");
+          break;
+        case 'extract':
+          lines.push("    cy.get('" + s + "').invoke('text').as('" + escStr(a.as || 'extracted') + "');");
+          break;
+        case 'assert':
+          if (a.text !== undefined) {
+            lines.push("    cy.get('" + s + "').should('have.text', '" + escStr(a.text) + "');");
+          } else {
+            lines.push("    cy.get('" + s + "').should('be.visible');");
+          }
+          break;
+        default:
+          lines.push("    // unsupported action: " + (a.action || 'unknown'));
+      }
+    }
+
+    lines.push('  });');
+    lines.push('});');
+    lines.push('');
+    return lines.join('\n');
+  }
+
+  /* ------------------------------------------------------------------ */
+  /*  createScript                                                       */
+  /* ------------------------------------------------------------------ */
+
+  function createScript(actions, options) {
+    var opts = options || {};
+    var script = {
+      name: opts.name || 'Untitled Script',
+      description: opts.description || '',
+      actions: actions.slice(),
+      createdAt: new Date().toISOString(),
+
+      addAction: function (action) { script.actions.push(action); return script; },
+      removeAction: function (idx) { script.actions.splice(idx, 1); return script; },
+      toPlaywright: function (o) { return toPlaywright(script.actions, mergeOpts(opts, o)); },
+      toSelenium: function (o) { return toSelenium(script.actions, mergeOpts(opts, o)); },
+      toCypress: function (o) { return toCypress(script.actions, mergeOpts(opts, o)); },
+      toJSON: function () {
+        return JSON.stringify({
+          name: script.name,
+          description: script.description,
+          actions: script.actions,
+          createdAt: script.createdAt
+        }, null, 2);
+      }
+    };
+    return script;
+  }
+
+  function mergeOpts(base, extra) {
+    if (!extra) { return base; }
+    var out = {};
+    var k;
+    for (k in base) { if (base.hasOwnProperty(k)) { out[k] = base[k]; } }
+    for (k in extra) { if (extra.hasOwnProperty(k)) { out[k] = extra[k]; } }
+    return out;
+  }
+
+  /* ------------------------------------------------------------------ */
+  /*  Recorder                                                           */
+  /* ------------------------------------------------------------------ */
+
+  function record() {
+    var actions = [];
+    var active = true;
+
+    function onClick(e) {
+      if (!active) { return; }
+      var sel = buildSelector(e.target);
+      if (sel) { actions.push({ action: 'click', selector: sel }); }
+    }
+
+    function onInput(e) {
+      if (!active) { return; }
+      var el = e.target;
+      if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT') {
+        var sel = buildSelector(el);
+        if (!sel) { return; }
+        if (el.tagName === 'SELECT') {
+          actions.push({ action: 'select', selector: sel, value: el.value });
+        } else {
+          // Merge consecutive types on same selector
+          var last = actions[actions.length - 1];
+          if (last && last.action === 'type' && last.selector === sel) {
+            last.value = el.value;
+          } else {
+            actions.push({ action: 'type', selector: sel, value: el.value });
+          }
+        }
+      }
+    }
+
+    function onSubmit(e) {
+      if (!active) { return; }
+      var sel = buildSelector(e.target);
+      if (sel) { actions.push({ action: 'click', selector: sel + ' [type="submit"]' }); }
+    }
+
+    function onNav() {
+      if (!active) { return; }
+      actions.push({ action: 'navigate', url: window.location.href });
+    }
+
+    document.addEventListener('click', onClick, true);
+    document.addEventListener('change', onInput, true);
+    document.addEventListener('submit', onSubmit, true);
+    window.addEventListener('popstate', onNav);
+    window.addEventListener('hashchange', onNav);
+
+    return {
+      stop: function () {
+        active = false;
+        document.removeEventListener('click', onClick, true);
+        document.removeEventListener('change', onInput, true);
+        document.removeEventListener('submit', onSubmit, true);
+        window.removeEventListener('popstate', onNav);
+        window.removeEventListener('hashchange', onNav);
+      },
+      getActions: function () { return actions.slice(); },
+      isRecording: function () { return active; }
+    };
+  }
+
+  /* ------------------------------------------------------------------ */
+  /*  Download                                                           */
+  /* ------------------------------------------------------------------ */
+
+  function download(actions, format, options) {
+    var opts = options || {};
+    var content, ext, mime;
+
+    switch (format) {
+      case 'playwright':
+        content = toPlaywright(actions, opts);
+        ext = '.spec.js';
+        mime = 'text/javascript';
+        break;
+      case 'selenium':
+        content = toSelenium(actions, opts);
+        ext = '.py';
+        mime = 'text/x-python';
+        break;
+      case 'cypress':
+        content = toCypress(actions, opts);
+        ext = '.cy.js';
+        mime = 'text/javascript';
+        break;
+      case 'json':
+        content = JSON.stringify(actions, null, 2);
+        ext = '.json';
+        mime = 'application/json';
+        break;
+      default:
+        content = toPlaywright(actions, opts);
+        ext = '.spec.js';
+        mime = 'text/javascript';
+    }
+
+    var name = (opts.name || 'automation').replace(/\s+/g, '-').toLowerCase() + ext;
+    var blob = new Blob([content], { type: mime });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  /* ------------------------------------------------------------------ */
+  /*  Validate                                                           */
+  /* ------------------------------------------------------------------ */
+
+  var VALID_ACTIONS = {
+    navigate: ['url'],
+    wait: [],
+    click: ['selector'],
+    type: ['selector', 'value'],
+    select: ['selector', 'value'],
+    press: [],
+    scroll: [],
+    screenshot: [],
+    extract: ['selector'],
+    assert: ['selector']
+  };
+
+  function validate(actions) {
+    var errors = [];
+    if (!Array.isArray(actions)) { return [{ index: -1, message: 'Actions must be an array' }]; }
+    for (var i = 0; i < actions.length; i++) {
+      var a = actions[i];
+      if (!a || !a.action) {
+        errors.push({ index: i, message: 'Missing action property' });
+        continue;
+      }
+      if (!(a.action in VALID_ACTIONS)) {
+        errors.push({ index: i, message: 'Unknown action: ' + a.action });
+        continue;
+      }
+      var required = VALID_ACTIONS[a.action];
+      for (var j = 0; j < required.length; j++) {
+        if (!a[required[j]] && a[required[j]] !== 0) {
+          errors.push({ index: i, message: a.action + ' requires ' + required[j] });
+        }
+      }
+    }
+    return errors;
+  }
+
+  /* ------------------------------------------------------------------ */
+  /*  Public API                                                         */
+  /* ------------------------------------------------------------------ */
+
+  window.DK.robo = {
+    createScript: createScript,
+    toPlaywright: toPlaywright,
+    toSelenium: toSelenium,
+    toCypress: toCypress,
+    record: record,
+    buildSelector: buildSelector,
+    download: download,
+    validate: validate
+  };
+})();
+
 // --- main ---
 
 function main() {

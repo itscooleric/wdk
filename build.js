@@ -76,7 +76,10 @@ var SOURCE_FILES = [
   'inspect/page-explorer.js',
   'inspect/var-discovery.js',
   'export/docx-writer.js',
-  'export/classification.js'
+  'export/classification.js',
+  'export/nipr-safe.js',
+  'parsers/docx-reader.js',
+  'ui/robo.js'
 ];
 
 // --- Read and clean source files ---
