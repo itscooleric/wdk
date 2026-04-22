@@ -72,7 +72,8 @@ var SOURCE_FILES = [
   'inspect/dom-scraper.js',
   'inspect/network-interceptor.js',
   'inspect/storage-viewer.js',
-  'inspect/console-capture.js'
+  'inspect/console-capture.js',
+  'inspect/page-explorer.js'
 ];
 
 // --- Read and clean source files ---

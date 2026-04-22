@@ -71,8 +71,8 @@ function createDebugPanel(container, onDataLoaded) {
 
   var panes = {};
   var tabs = {};
-  var subTabNames = ['network', 'console', 'storage', 'dom'];
-  var subTabLabels = { network: 'Network', console: 'Console', storage: 'Storage', dom: 'DOM' };
+  var subTabNames = ['network', 'console', 'storage', 'dom', 'explore'];
+  var subTabLabels = { network: 'Network', console: 'Console', storage: 'Storage', dom: 'DOM', explore: 'Explore' };
 
   var contentArea = document.createElement('div');
   contentArea.className = 'dk-debug-content';
@@ -583,11 +583,182 @@ function createDebugPanel(container, onDataLoaded) {
     });
   }
 
+  // =====================
+  // EXPLORE PANE
+  // =====================
+  function initExplore() {
+    var pane = panes.explore;
+    var toolbar = document.createElement('div');
+    toolbar.className = 'dk-debug-toolbar';
+
+    var refreshBtn = document.createElement('button');
+    refreshBtn.className = 'dk-debug-btn dk-debug-btn-primary';
+    refreshBtn.textContent = 'Scan Page';
+
+    var exportBtn = document.createElement('button');
+    exportBtn.className = 'dk-debug-btn';
+    exportBtn.textContent = 'Export JSON';
+
+    toolbar.appendChild(refreshBtn);
+    toolbar.appendChild(exportBtn);
+    pane.appendChild(toolbar);
+
+    var resultArea = document.createElement('div');
+    resultArea.style.cssText = 'overflow-y:auto;flex:1;';
+    resultArea.innerHTML = '<p class="dk-debug-msg">Click "Scan Page" to explore this page.</p>';
+    pane.appendChild(resultArea);
+
+    var lastReport = null;
+
+    function renderSection(title, content) {
+      return '<div style="margin-bottom:12px;">' +
+        '<div style="color:' + T.cyan + ';font-size:11px;font-weight:bold;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">' + title + '</div>' +
+        content + '</div>';
+    }
+
+    function renderKV(pairs) {
+      var html = '<table class="dk-debug-table"><tbody>';
+      for (var i = 0; i < pairs.length; i++) {
+        html += '<tr><td style="color:' + T.textDim + ';width:160px;">' + escapeHtml(pairs[i][0]) + '</td>';
+        html += '<td>' + escapeHtml(String(pairs[i][1])) + '</td></tr>';
+      }
+      html += '</tbody></table>';
+      return html;
+    }
+
+    function renderReport(report) {
+      var html = '';
+
+      // Meta info
+      if (report.meta) {
+        var m = report.meta;
+        var pairs = [
+          ['Title', m.title || '-'],
+          ['URL', truncate(m.url || '-', 80)],
+          ['Charset', m.charset || '-'],
+          ['Doctype', m.doctype || '-']
+        ];
+        if (m.metas) {
+          for (var i = 0; i < m.metas.length && i < 10; i++) {
+            pairs.push(['meta:' + m.metas[i].name, truncate(m.metas[i].content, 80)]);
+          }
+        }
+        html += renderSection('Page Info', renderKV(pairs));
+      }
+
+      // Performance
+      if (report.performance) {
+        var p = report.performance;
+        var perfPairs = [];
+        if (p.memory) {
+          perfPairs.push(['Heap Used', p.memory.usedMB + ' MB']);
+          perfPairs.push(['Heap Total', p.memory.totalMB + ' MB']);
+          perfPairs.push(['Heap Limit', p.memory.limitMB + ' MB']);
+        }
+        if (p.timing) {
+          if (p.timing.ttfb != null) perfPairs.push(['TTFB', p.timing.ttfb + ' ms']);
+          if (p.timing.domContentLoaded != null) perfPairs.push(['DOMContentLoaded', p.timing.domContentLoaded + ' ms']);
+          if (p.timing.loadComplete != null) perfPairs.push(['Load Complete', p.timing.loadComplete + ' ms']);
+        }
+        if (p.resources) {
+          var rKeys = Object.keys(p.resources);
+          for (var r = 0; r < rKeys.length; r++) {
+            perfPairs.push(['Resources: ' + rKeys[r], String(p.resources[rKeys[r]])]);
+          }
+        }
+        if (p.totalTransferKB != null) perfPairs.push(['Total Transfer', p.totalTransferKB + ' KB']);
+        html += renderSection('Performance', renderKV(perfPairs));
+      }
+
+      // DOM Summary
+      if (report.dom) {
+        var d = report.dom;
+        var domPairs = [
+          ['Total Nodes', String(d.nodeCount || 0)],
+          ['Max Depth', String(d.depth || 0)],
+          ['iframes', String(d.iframes || 0)],
+          ['Shadow Roots', String(d.shadowRoots || 0)],
+          ['Images', String(d.images || 0)],
+          ['Scripts', String(d.scripts || 0)],
+          ['Stylesheets', String(d.stylesheets || 0)],
+          ['Forms', String(d.forms || 0)],
+          ['Data Attributes', String(d.dataAttributes || 0)]
+        ];
+        if (d.tagCounts) {
+          var tagKeys = Object.keys(d.tagCounts);
+          for (var t = 0; t < tagKeys.length && t < 10; t++) {
+            domPairs.push(['<' + tagKeys[t] + '>', String(d.tagCounts[tagKeys[t]])]);
+          }
+        }
+        html += renderSection('DOM Summary', renderKV(domPairs));
+      }
+
+      // Globals
+      if (report.globals && report.globals.length > 0) {
+        var gHtml = '<table class="dk-debug-table"><thead><tr><th>Name</th><th>Type</th><th>Preview</th></tr></thead><tbody>';
+        for (var g = 0; g < report.globals.length && g < 50; g++) {
+          var gl = report.globals[g];
+          gHtml += '<tr><td style="color:' + T.cyan + ';">' + escapeHtml(gl.name) + '</td>';
+          gHtml += '<td style="color:' + T.textDim + ';">' + escapeHtml(gl.type) + '</td>';
+          gHtml += '<td>' + escapeHtml(truncate(gl.preview, 60)) + '</td></tr>';
+        }
+        gHtml += '</tbody></table>';
+        if (report.globals.length > 50) {
+          gHtml += '<p class="dk-debug-msg">Showing 50 of ' + report.globals.length + ' globals.</p>';
+        }
+        html += renderSection('Page Globals (' + report.globals.length + ')', gHtml);
+      } else {
+        html += renderSection('Page Globals', '<p class="dk-debug-msg">No app-specific globals found.</p>');
+      }
+
+      // Event Listeners
+      if (report.listeners && report.listeners.length > 0) {
+        var lHtml = '<table class="dk-debug-table"><thead><tr><th>Element</th><th>Events</th></tr></thead><tbody>';
+        for (var l = 0; l < report.listeners.length && l < 30; l++) {
+          var li = report.listeners[l];
+          lHtml += '<tr><td style="color:' + T.cyan + ';">' + escapeHtml(li.selector) + '</td>';
+          lHtml += '<td>' + escapeHtml((li.events || []).join(', ')) + '</td></tr>';
+        }
+        lHtml += '</tbody></table>';
+        html += renderSection('Event Listeners (' + report.listeners.length + ')', lHtml);
+      }
+
+      resultArea.innerHTML = html || '<p class="dk-debug-msg">No data collected.</p>';
+    }
+
+    refreshBtn.addEventListener('click', function () {
+      if (!window.DK || !window.DK.pageExplorer) {
+        resultArea.innerHTML = '<p class="dk-debug-msg">Page explorer not available. Load inspect/page-explorer.js first.</p>';
+        return;
+      }
+      resultArea.innerHTML = '<p class="dk-debug-msg">Scanning...</p>';
+      try {
+        lastReport = window.DK.pageExplorer.explore();
+        renderReport(lastReport);
+        setBadge('explore', lastReport.globals ? lastReport.globals.length : 0);
+      } catch (e) {
+        resultArea.innerHTML = '<p class="dk-debug-msg" style="color:' + T.error + ';">Error: ' + escapeHtml(e.message) + '</p>';
+      }
+    });
+
+    exportBtn.addEventListener('click', function () {
+      if (!lastReport) return;
+      var blob = new Blob([JSON.stringify(lastReport, null, 2)], { type: 'application/json' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = 'page-explore-' + new Date().toISOString().replace(/[:.]/g, '-') + '.json';
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+  }
+
   // --- Initialize all panes ---
   initNetwork();
   initConsole();
   initStorage();
   initDOM();
+  initExplore();
 
   // Activate first tab
   switchTab('network');
