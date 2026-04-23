@@ -31,6 +31,56 @@ var MINIMAL_FILES = [
   'ui/panel.js'
 ];
 
+// Tier A: Inspect — DevTools replacement (~45KB)
+var INSPECT_FILES = [
+  'ui/panel.js',
+  'ui/debug-panel.js',
+  'inspect/dom-scraper.js',
+  'inspect/network-interceptor.js',
+  'inspect/storage-viewer.js',
+  'inspect/console-capture.js',
+  'inspect/page-explorer.js',
+  'inspect/var-discovery.js'
+];
+
+// Tier B: Inspect + REPL (~60KB)
+var REPL_FILES = INSPECT_FILES.concat([
+  'ui/repl.js'
+]);
+
+// Tier C: Inspect + Data (~85KB)
+var DATA_FILES = REPL_FILES.concat([
+  'parsers/csv.js',
+  'transforms/data-model.js',
+  'util/detect-types.js',
+  'export/export.js',
+  'ui/table.js',
+  'ui/file-import.js'
+]);
+
+// Tier D: Inspect + Robo (~80KB)
+var ROBO_FILES = REPL_FILES.concat([
+  'ui/robo.js'
+]);
+
+// Tier E: Field Kit (~95KB) — Inspect + Data + Robo + Classification
+var FIELD_FILES = DATA_FILES.concat([
+  'ui/robo.js',
+  'export/classification.js',
+  'export/nipr-safe.js'
+]);
+
+// Tier name → file list mapping
+var TIER_MAP = {
+  minimal: MINIMAL_FILES,
+  inspect: INSPECT_FILES,
+  repl: REPL_FILES,
+  data: DATA_FILES,
+  robo: ROBO_FILES,
+  field: FIELD_FILES,
+  full: null  // uses SOURCE_FILES
+};
+
 // Source files in dependency order
 var SOURCE_FILES = [
   'parsers/csv.js',
@@ -448,12 +498,20 @@ function minifyJS(code) {
 
 var tier = 'full';
 for (var a = 2; a < process.argv.length; a++) {
-  if (process.argv[a] === '--tier=minimal') {
-    tier = 'minimal';
+  var match = process.argv[a].match(/^--tier=(.+)$/);
+  if (match) {
+    tier = match[1];
   }
 }
 
-var sourceList = (tier === 'minimal') ? MINIMAL_FILES : SOURCE_FILES;
+if (tier !== 'full' && !TIER_MAP[tier]) {
+  console.error('Unknown tier: ' + tier);
+  console.error('Available tiers: ' + Object.keys(TIER_MAP).join(', '));
+  process.exit(1);
+}
+
+var sourceList = (tier === 'full') ? SOURCE_FILES : TIER_MAP[tier];
+var isMinified = (tier !== 'full');
 
 console.log('WDK build (' + tier + ' tier)');
 console.log('Reading sources...');
@@ -479,8 +537,8 @@ parts.push('// --- main ---\n\n' + buildMain());
 // Wrap in IIFE
 var iife = '(function () {\n"use strict";\n\n' + parts.join('\n\n') + '\n\n})();\n';
 
-// Apply minification for minimal tier
-if (tier === 'minimal') {
+// Apply minification for non-full tiers
+if (isMinified) {
   iife = minifyJS(iife);
 }
 
@@ -489,42 +547,40 @@ if (!fs.existsSync(DIST)) {
   fs.mkdirSync(DIST, { recursive: true });
 }
 
-if (tier === 'minimal') {
-  // Minimal tier outputs
-  var jsPath = path.join(DIST, 'wdk-minimal.js');
-  fs.writeFileSync(jsPath, iife, 'utf8');
-  console.log('  -> ' + jsPath + ' (' + iife.length + ' bytes)');
+var suffix = (tier === 'full') ? '' : '-' + tier;
+var jsPath = path.join(DIST, 'wdk' + suffix + '.js');
+fs.writeFileSync(jsPath, iife, 'utf8');
+console.log('  -> ' + jsPath + ' (' + iife.length + ' bytes)');
 
-  var bookmarklet = 'javascript:' + encodeURIComponent(iife);
-  var bmPath = path.join(DIST, 'wdk-minimal-bookmarklet.txt');
-  fs.writeFileSync(bmPath, bookmarklet, 'utf8');
-  console.log('  -> ' + bmPath + ' (' + bookmarklet.length + ' bytes)');
+var bookmarklet = 'javascript:' + encodeURIComponent(iife);
+var bmPath = path.join(DIST, 'wdk' + suffix + '-bookmarklet.txt');
+fs.writeFileSync(bmPath, bookmarklet, 'utf8');
+console.log('  -> ' + bmPath + ' (' + bookmarklet.length + ' bytes)');
+
+if (isMinified) {
   console.log('  Bookmarklet size: ' + bookmarklet.length + ' bytes (' + (bookmarklet.length / 1024).toFixed(1) + ' KB)');
   if (bookmarklet.length > 100 * 1024) {
     console.log('  WARNING: bookmarklet exceeds 100KB target');
   } else {
     console.log('  OK: bookmarklet under 100KB target');
   }
+}
 
-  var html = buildHTML(iife);
-  var htmlPath = path.join(DIST, 'wdk-minimal.html');
-  fs.writeFileSync(htmlPath, html, 'utf8');
-  console.log('  -> ' + htmlPath + ' (' + html.length + ' bytes)');
-} else {
-  // Full tier outputs (original behavior)
-  var jsPath = path.join(DIST, 'wdk.js');
-  fs.writeFileSync(jsPath, iife, 'utf8');
-  console.log('  -> ' + jsPath + ' (' + iife.length + ' bytes)');
+var html = buildHTML(iife);
+var htmlPath = path.join(DIST, 'wdk' + suffix + '.html');
+fs.writeFileSync(htmlPath, html, 'utf8');
+console.log('  -> ' + htmlPath + ' (' + html.length + ' bytes)');
 
-  var bookmarklet = 'javascript:' + encodeURIComponent(iife);
-  var bmPath = path.join(DIST, 'wdk-bookmarklet.txt');
-  fs.writeFileSync(bmPath, bookmarklet, 'utf8');
-  console.log('  -> ' + bmPath + ' (' + bookmarklet.length + ' bytes)');
-
-  var html = buildHTML(iife);
-  var htmlPath = path.join(DIST, 'wdk.html');
-  fs.writeFileSync(htmlPath, html, 'utf8');
-  console.log('  -> ' + htmlPath + ' (' + html.length + ' bytes)');
+// Generate loader bookmarklet (always, for full tier)
+if (tier === 'full') {
+  var loader = "javascript:void(document.head.appendChild(Object.assign(document.createElement('script'),{src:prompt('WDK URL:','https://your-server/wdk.js')})))";
+  var loaderPath = path.join(DIST, 'wdk-loader-bookmarklet.txt');
+  fs.writeFileSync(loaderPath, loader, 'utf8');
+  console.log('  -> ' + loaderPath + ' (' + loader.length + ' bytes)');
 }
 
 console.log('Done. ' + found + ' modules included, ' + skipped + ' skipped.');
+if (tier !== 'full') {
+  console.log('Tier: ' + tier + ' (' + found + ' modules)');
+  console.log('Available tiers: ' + Object.keys(TIER_MAP).join(', '));
+}
