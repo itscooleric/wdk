@@ -497,10 +497,18 @@ function minifyJS(code) {
 // --- Build ---
 
 var tier = 'full';
+var encodeMode = null;
+var asciiMode = false;
 for (var a = 2; a < process.argv.length; a++) {
   var match = process.argv[a].match(/^--tier=(.+)$/);
   if (match) {
     tier = match[1];
+  }
+  if (process.argv[a].match(/^--encode=(.+)$/)) {
+    encodeMode = process.argv[a].split('=')[1];
+  }
+  if (process.argv[a] === '--ascii') {
+    asciiMode = true;
   }
 }
 
@@ -542,6 +550,35 @@ if (isMinified) {
   iife = minifyJS(iife);
 }
 
+// ASCII sanitization — replace all non-ASCII chars with ASCII equivalents
+if (asciiMode || encodeMode) {
+  var UNICODE_MAP = {
+    '\u2500': '-', '\u2502': '|', '\u250C': '+', '\u2510': '+',
+    '\u2514': '+', '\u2518': '+', '\u251C': '+', '\u2524': '+',
+    '\u252C': '+', '\u2534': '+', '\u253C': '+',
+    '\u2014': '--', '\u2013': '-', '\u2192': '->', '\u2190': '<-',
+    '\u2022': '*', '\u25CF': '*', '\u25CB': 'o',
+    '\u2715': 'x', '\u2717': 'x', '\u2713': 'v',
+    '\u26A0': '!', '\u00B7': '.',
+    '\u201C': '"', '\u201D': '"', '\u2018': "'", '\u2019': "'",
+    '\u2026': '...',
+  };
+  var asciiResult = '';
+  for (var ci = 0; ci < iife.length; ci++) {
+    var ch = iife[ci];
+    var code = iife.charCodeAt(ci);
+    if (code > 127) {
+      asciiResult += UNICODE_MAP[ch] || '?';
+    } else {
+      asciiResult += ch;
+    }
+  }
+  iife = asciiResult;
+  if (asciiMode) {
+    console.log('  ASCII sanitized: all non-ASCII chars replaced');
+  }
+}
+
 // Ensure dist/ exists
 if (!fs.existsSync(DIST)) {
   fs.mkdirSync(DIST, { recursive: true });
@@ -579,8 +616,64 @@ if (tier === 'full') {
   console.log('  -> ' + loaderPath + ' (' + loader.length + ' bytes)');
 }
 
+// Charcode encoding for CDS transfer
+if (encodeMode === 'charcode') {
+  var codes = [];
+  for (var ei = 0; ei < iife.length; ei++) {
+    codes.push(iife.charCodeAt(ei));
+  }
+  var jsonEncoded = JSON.stringify(codes);
+  var encodedPath = path.join(DIST, 'wdk' + suffix + '-encoded.json');
+  fs.writeFileSync(encodedPath, jsonEncoded, 'utf8');
+  console.log('  -> ' + encodedPath + ' (' + jsonEncoded.length + ' bytes, ' + (jsonEncoded.length / 1024).toFixed(1) + ' KB)');
+
+  // Generate PowerShell decoder
+  var psDecoder = [
+    '# WDK Decoder — run on receiving side',
+    '# Usage: powershell -File decode-wdk.ps1',
+    '$codes = Get-Content "wdk' + suffix + '-encoded.json" | ConvertFrom-Json',
+    '$js = -join ($codes | ForEach-Object { [char]$_ })',
+    '$js | Out-File -Encoding UTF8 "wdk' + suffix + '.js"',
+    'Write-Host "Decoded $($codes.Count) chars to wdk' + suffix + '.js"',
+  ].join('\r\n');
+  var psPath = path.join(DIST, 'decode-wdk' + suffix + '.ps1');
+  fs.writeFileSync(psPath, psDecoder, 'utf8');
+  console.log('  -> ' + psPath);
+
+  // Generate self-extracting HTML decoder
+  var htmlDecoder = [
+    '<!DOCTYPE html>',
+    '<html><head><meta charset="UTF-8"><title>WDK Loader</title></head>',
+    '<body style="background:#0a0a1a;color:#e0e0f0;font-family:monospace;padding:20px">',
+    '<h2>WDK Loader</h2>',
+    '<p>Loading WDK from encoded data...</p>',
+    '<script>',
+    'var x=new XMLHttpRequest();',
+    'x.open("GET","wdk' + suffix + '-encoded.json",true);',
+    'x.onload=function(){',
+    '  var codes=JSON.parse(x.responseText);',
+    '  var js="";for(var i=0;i<codes.length;i++)js+=String.fromCharCode(codes[i]);',
+    '  var s=document.createElement("script");s.textContent=js;document.head.appendChild(s);',
+    '  document.body.innerHTML="<h2>WDK loaded ("+codes.length+" chars)</h2>";',
+    '};',
+    'x.onerror=function(){document.body.innerHTML+="<p style=color:red>Failed to load encoded file. Place wdk' + suffix + '-encoded.json in the same directory.</p>"};',
+    'x.send();',
+    '</script>',
+    '</body></html>',
+  ].join('\n');
+  var htmlDecoderPath = path.join(DIST, 'wdk' + suffix + '-loader.html');
+  fs.writeFileSync(htmlDecoderPath, htmlDecoder, 'utf8');
+  console.log('  -> ' + htmlDecoderPath);
+}
+
 console.log('Done. ' + found + ' modules included, ' + skipped + ' skipped.');
 if (tier !== 'full') {
   console.log('Tier: ' + tier + ' (' + found + ' modules)');
-  console.log('Available tiers: ' + Object.keys(TIER_MAP).join(', '));
+}
+console.log('Available tiers: ' + Object.keys(TIER_MAP).join(', '));
+if (encodeMode) {
+  console.log('Encoding: ' + encodeMode);
+}
+if (asciiMode) {
+  console.log('ASCII mode: enabled');
 }
