@@ -559,8 +559,6 @@ function createAppShell() {
 
   dataView.appendChild(sheetTabBar);
   dataView.appendChild(tablePane);
-  dataView.appendChild(splitHandle);
-  dataView.appendChild(bottomPanel);
 
   // Scanner view (full-content, independent of data view)
   var scannerView = document.createElement('div');
@@ -592,6 +590,8 @@ function createAppShell() {
   content.appendChild(welcomeView);
   content.appendChild(dataView);
   content.appendChild(scannerView);
+  content.appendChild(splitHandle);
+  content.appendChild(bottomPanel);
 
   // Init build configurator (doesn't need data)
   if (typeof createBuildConfig === 'function') {
