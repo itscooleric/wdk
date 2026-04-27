@@ -31,10 +31,11 @@ var MINIMAL_FILES = [
   'ui/panel.js'
 ];
 
-// Tier A: Inspect — DevTools replacement (~45KB)
+// Tier A: Inspect — DevTools replacement + REPL
 var INSPECT_FILES = [
   'ui/panel.js',
   'ui/debug-panel.js',
+  'ui/repl.js',
   'inspect/dom-scraper.js',
   'inspect/network-interceptor.js',
   'inspect/storage-viewer.js',
@@ -43,10 +44,8 @@ var INSPECT_FILES = [
   'inspect/var-discovery.js'
 ];
 
-// Tier B: Inspect + REPL (~60KB)
-var REPL_FILES = INSPECT_FILES.concat([
-  'ui/repl.js'
-]);
+// Tier B: Inspect + REPL (same as Inspect now — kept for compat)
+var REPL_FILES = INSPECT_FILES;
 
 // Tier C: Inspect + Data (~85KB)
 var DATA_FILES = REPL_FILES.concat([
@@ -222,6 +221,23 @@ function buildMain() {
     '',
     '  if (typeof createFileImport === "function") {',
     '    createFileImport(contentArea, onDataLoaded);',
+    '  }',
+    '',
+    '  // Wire up debug panel if available (inspect tier)',
+    '  if (typeof createDebugPanel === "function") {',
+    '    var debugContainer = document.createElement("div");',
+    '    debugContainer.style.cssText = "margin-top:12px;";',
+    '    contentArea.appendChild(debugContainer);',
+    '    createDebugPanel(debugContainer, onDataLoaded);',
+    '  }',
+    '',
+    '  // Wire up REPL immediately (even without data)',
+    '  if (typeof createREPL === "function" && !replInstance) {',
+    '    var replContainer = document.createElement("div");',
+    '    replContainer.className = "dk-repl-container";',
+    '    replContainer.style.cssText = "margin-top:12px;height:300px;";',
+    '    contentArea.appendChild(replContainer);',
+    '    replInstance = createREPL(replContainer, getREPLContext);',
     '  }',
     '}',
     '',

@@ -16648,6 +16648,23 @@ function main() {
   if (typeof createFileImport === "function") {
     createFileImport(contentArea, onDataLoaded);
   }
+
+  // Wire up debug panel if available (inspect tier)
+  if (typeof createDebugPanel === "function") {
+    var debugContainer = document.createElement("div");
+    debugContainer.style.cssText = "margin-top:12px;";
+    contentArea.appendChild(debugContainer);
+    createDebugPanel(debugContainer, onDataLoaded);
+  }
+
+  // Wire up REPL immediately (even without data)
+  if (typeof createREPL === "function" && !replInstance) {
+    var replContainer = document.createElement("div");
+    replContainer.className = "dk-repl-container";
+    replContainer.style.cssText = "margin-top:12px;height:300px;";
+    contentArea.appendChild(replContainer);
+    replInstance = createREPL(replContainer, getREPLContext);
+  }
 }
 
 // Auto-run
