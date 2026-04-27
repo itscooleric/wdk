@@ -545,9 +545,13 @@ parts.push('// --- main ---\n\n' + buildMain());
 // Wrap in IIFE
 var iife = '(function () {\n"use strict";\n\n' + parts.join('\n\n') + '\n\n})();\n';
 
-// Apply minification for non-full tiers
+// Apply minification for non-full tiers (JS and HTML stay readable for full tier)
+var minifiedIIFE = null;
 if (isMinified) {
   iife = minifyJS(iife);
+} else {
+  // Full tier: keep iife readable for .js/.html, but minify separately for bookmarklet
+  minifiedIIFE = minifyJS(iife);
 }
 
 // ASCII sanitization — replace all non-ASCII chars with ASCII equivalents
@@ -574,6 +578,20 @@ if (asciiMode || encodeMode) {
     }
   }
   iife = asciiResult;
+  // Also sanitize the minified version if it exists
+  if (minifiedIIFE) {
+    var asciiMin = '';
+    for (var mi = 0; mi < minifiedIIFE.length; mi++) {
+      var mch = minifiedIIFE[mi];
+      var mcode = minifiedIIFE.charCodeAt(mi);
+      if (mcode > 127) {
+        asciiMin += UNICODE_MAP[mch] || '?';
+      } else {
+        asciiMin += mch;
+      }
+    }
+    minifiedIIFE = asciiMin;
+  }
   if (asciiMode) {
     console.log('  ASCII sanitized: all non-ASCII chars replaced');
   }
@@ -589,18 +607,18 @@ var jsPath = path.join(DIST, 'wdk' + suffix + '.js');
 fs.writeFileSync(jsPath, iife, 'utf8');
 console.log('  -> ' + jsPath + ' (' + iife.length + ' bytes)');
 
-var bookmarklet = 'javascript:' + encodeURIComponent(iife);
+var bookmarkletSource = minifiedIIFE || iife;  // Always use minified for bookmarklet
+var bookmarklet = 'javascript:' + encodeURIComponent(bookmarkletSource);
 var bmPath = path.join(DIST, 'wdk' + suffix + '-bookmarklet.txt');
 fs.writeFileSync(bmPath, bookmarklet, 'utf8');
 console.log('  -> ' + bmPath + ' (' + bookmarklet.length + ' bytes)');
 
-if (isMinified) {
-  console.log('  Bookmarklet size: ' + bookmarklet.length + ' bytes (' + (bookmarklet.length / 1024).toFixed(1) + ' KB)');
-  if (bookmarklet.length > 100 * 1024) {
-    console.log('  WARNING: bookmarklet exceeds 100KB target');
-  } else {
-    console.log('  OK: bookmarklet under 100KB target');
-  }
+console.log('  Bookmarklet size: ' + bookmarklet.length + ' bytes (' + (bookmarklet.length / 1024).toFixed(1) + ' KB)');
+if (bookmarklet.length > 100 * 1024) {
+  console.log('  WARNING: bookmarklet exceeds 100KB — may not work in all browsers');
+  console.log('  TIP: use --tier=inspect (71KB) or the loader bookmarklet instead');
+} else {
+  console.log('  OK: bookmarklet under 100KB target');
 }
 
 var html = buildHTML(iife);
@@ -610,7 +628,7 @@ console.log('  -> ' + htmlPath + ' (' + html.length + ' bytes)');
 
 // Generate loader bookmarklet (always, for full tier)
 if (tier === 'full') {
-  var loader = "javascript:void(document.head.appendChild(Object.assign(document.createElement('script'),{src:prompt('WDK URL:','https://your-server/wdk.js')})))";
+  var loader = "javascript:void(document.head.appendChild(Object.assign(document.createElement('script'),{src:prompt('WDK URL:','https://stash.edge.wubi.dev/raw/wdk.txt')})))";
   var loaderPath = path.join(DIST, 'wdk-loader-bookmarklet.txt');
   fs.writeFileSync(loaderPath, loader, 'utf8');
   console.log('  -> ' + loaderPath + ' (' + loader.length + ' bytes)');
