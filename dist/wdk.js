@@ -1,53 +1,3 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="color-scheme" content="dark">
-<title>WDK</title>
-<style>
-  /* Pre-paint baseline — prevents white flash before JS runs */
-  html { background: #0a0a1a; }
-  html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; }
-  body {
-    background: #0a0a1a; color: #e0e0f0;
-    font-family: "SF Mono", "Fira Code", "Cascadia Code", "Consolas", monospace;
-    font-size: 13px;
-  }
-  /* Loading screen shown before JS initialises */
-  #dk-boot {
-    display: flex; align-items: center; justify-content: center;
-    height: 100vh;
-    font-family: "SF Mono", "Fira Code", "Consolas", monospace;
-    font-size: 14px;
-    background: linear-gradient(135deg, #0a0a1a 0%, #12122a 100%);
-    color: #8888aa; letter-spacing: 2px;
-  }
-  #dk-boot span {
-    background: linear-gradient(90deg, #00e5ff, #b967ff, #ff2975);
-    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-    background-clip: text;
-    font-weight: 700; font-size: 18px; letter-spacing: 3px;
-  }
-</style>
-</head>
-<body>
-<div id="dk-boot"><span>WDK</span></div>
-<script>
-// Remove boot screen once shell is ready
-(function removeBoot() {
-  var remove = function() {
-    var b = document.getElementById("dk-boot");
-    if (b && b.parentNode) b.parentNode.removeChild(b);
-  };
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", remove);
-  } else {
-    remove();
-  }
-})();
-</script>
-<script>
 (function () {
 "use strict";
 
@@ -16658,7 +16608,3 @@ if (document.readyState === "loading") {
 }
 
 })();
-
-</script>
-</body>
-</html>

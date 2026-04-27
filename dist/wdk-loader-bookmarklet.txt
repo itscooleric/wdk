@@ -1,0 +1,1 @@
+javascript:void(document.head.appendChild(Object.assign(document.createElement('script'),{src:prompt('WDK URL:','https://stash.edge.wubi.dev/raw/wdk.txt')})))
