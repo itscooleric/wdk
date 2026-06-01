@@ -1,0 +1,34 @@
+{
+  "version": "1",
+  "outbox": "./outbox",
+  "transfer": {
+    "method": "sftp",
+    "destination": "user@host:/inbox",
+    "key": "./keys/wiz_transfer_key",
+    "after_drop": "powershell -File ./ps/wiz-transfer.ps1 -OutboxDir ./outbox"
+  },
+  "sites": [
+    {
+      "name": "Quarterly Reports",
+      "url": "https://reports.example.com/q4",
+      "description": "Pull Q4 sales report via auth'd fetch bookmarklet",
+      "method": "bookmarklet",
+      "bookmarklet_file": "scripts/q4-fetch.txt",
+      "filename_hint": "q4-sales.csv"
+    },
+    {
+      "name": "Operations Dashboard",
+      "url": "https://ops.example.com",
+      "description": "Run recorded login + export flow via DevTools Recorder",
+      "method": "devtools-recorder",
+      "recorder_file": "scripts/ops-flow.json"
+    },
+    {
+      "name": "SharePoint Inventory",
+      "url": "https://tenant.sharepoint.com/sites/inv",
+      "description": "Open WDK bookmarklet panel; load list via REST",
+      "method": "wdk-bookmarklet",
+      "bookmarklet_file": "../dist/wdk-loader-bookmarklet.txt"
+    }
+  ]
+}

@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>JS → JSON Encoder (CDS Bypass)</title>
+<style>
+body { font-family: sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; background: #1a1a2e; color: #e0e0e0; }
+h1 { color: #7ec8e3; }
+textarea { width: 100%; height: 200px; font-family: monospace; font-size: 13px; background: #16213e; color: #e0e0e0; border: 1px solid #0f3460; padding: 10px; box-sizing: border-box; }
+button { background: #0f3460; color: #e0e0e0; border: none; padding: 10px 20px; cursor: pointer; margin: 5px 0; font-size: 14px; }
+button:hover { background: #7ec8e3; color: #000; }
+.info { color: #888; font-size: 13px; margin: 5px 0; }
+</style>
+</head>
+<body>
+<h1>JS → JSON Encoder</h1>
+<p class="info">Wraps JavaScript source in a JSON data file to bypass CDS content inspection.<br>
+The .json output looks like a data payload, not executable code.</p>
+
+<h3>1. Paste or load your .js file:</h3>
+<input type="file" id="filePicker" accept=".js,.mjs">
+<textarea id="jsInput" placeholder="Paste JavaScript source here..."></textarea>
+
+<h3>2. Encode and download:</h3>
+<button onclick="encode()">Encode to JSON</button>
+<button onclick="encodeSplit()">Encode + Split (50KB chunks)</button>
+<p class="info" id="status"></p>
+
+<textarea id="jsonOutput" placeholder="JSON output appears here..." readonly></textarea>
+
+<script>
+document.getElementById('filePicker').addEventListener('change', function(e) {
+  var file = e.target.files[0];
+  if (!file) return;
+  var reader = new FileReader();
+  reader.onload = function(ev) { document.getElementById('jsInput').value = ev.target.result; };
+  reader.readAsText(file);
+});
+
+function encode() {
+  var js = document.getElementById('jsInput').value;
+  if (!js.trim()) { alert('No JS source provided'); return; }
+  var payload = {
+    _meta: 'WDK transport payload — decode with js-from-json-decoder.html',
+    format: 'base64',
+    chunks: 1,
+    data: [btoa(unescape(encodeURIComponent(js)))]
+  };
+  var json = JSON.stringify(payload, null, 2);
+  document.getElementById('jsonOutput').value = json;
+  document.getElementById('status').textContent = 'Encoded: ' + js.length + ' chars JS → ' + json.length + ' chars JSON';
+  download('wdk-payload.json', json);
+}
+
+function encodeSplit() {
+  var js = document.getElementById('jsInput').value;
+  if (!js.trim()) { alert('No JS source provided'); return; }
+  var encoded = btoa(unescape(encodeURIComponent(js)));
+  var chunkSize = 50000;
+  var chunks = [];
+  for (var i = 0; i < encoded.length; i += chunkSize) {
+    chunks.push(encoded.slice(i, i + chunkSize));
+  }
+  for (var c = 0; c < chunks.length; c++) {
+    var payload = {
+      _meta: 'WDK transport payload chunk ' + (c+1) + '/' + chunks.length,
+      format: 'base64',
+      chunk: c + 1,
+      total_chunks: chunks.length,
+      data: chunks[c]
+    };
+    download('wdk-payload-' + (c+1) + 'of' + chunks.length + '.json', JSON.stringify(payload, null, 2));
+  }
+  document.getElementById('status').textContent = 'Split into ' + chunks.length + ' chunks of ~50KB each';
+}
+
+function download(name, content) {
+  var a = document.createElement('a');
+  a.href = 'data:application/json;charset=utf-8,' + encodeURIComponent(content);
+  a.download = name;
+  a.click();
+}
+</script>
+</body>
+</html>

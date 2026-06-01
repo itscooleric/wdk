@@ -1,0 +1,53 @@
+Lane B — Network Replay flow
+=============================
+
+  Step 1 — capture                 Step 2 — filter
+  ---------------                  ---------------
+  +-------------------+            +-------------------+
+  | Site loads        |            | WDK Network pane  |
+  | makes XHR/fetch   | ---log---> | (debug-panel)     |
+  +-------------------+            |                   |
+                                   | Filter chips:     |
+                                   |  - All / XHR      |
+                                   |  - Fetch / JSON   |
+                                   |  - Has body       |
+                                   |  - URL contains.. |
+                                   +---------+---------+
+                                             |
+                                             | pick row
+                                             v
+  Step 3 — inspect             +-------------------------+
+  ---------------              | Expanded row            |
+                               |                         |
+                               |  + initiator stack      |
+                               |  + req headers + body   |
+                               |  + resp headers         |
+                               |  + resp body preview    |
+                               |                         |
+                               |  Actions:               |
+                               |   [ Copy as bookmarklet]|
+                               |   [ Copy as fetch()    ]|
+                               |   [ Copy as curl       ]|
+                               |   [ Re-run             ]|
+                               |   [ Edit & Re-run      ]|
+                               +-------------+-----------+
+                                             |
+                          +------------------+------------------+
+                          |                  |                  |
+                          v                  v                  v
+              +----------------+  +-----------------+  +-----------------+
+  Step 4 ->  | bookmarklet    |  | fetch snippet   |  | Edit & Re-run   |
+              | javascript:    |  | (creds stripped)|  | dialog          |
+              | void(fetch())  |  |                 |  |                 |
+              | + auto-DL blob |  | --> clipboard   |  | tweak URL/      |
+              |                |  | --> share /     |  | method/headers/ |
+              | --> clipboard  |  |     script      |  | body, run, see  |
+              | --> address bar|  +-----------------+  | response inline |
+              | next visit     |                       +-----------------+
+              | --> auth'd     |
+              |     download   |
+              +----------------+
+
+  The bookmarklet uses credentials:'include' so the *next* visit to
+  the site (with a logged-in session) can fire the captured request
+  and download the response without re-clicking through the UI.

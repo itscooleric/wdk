@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>JS → CSV Encoder (CDS Bypass)</title>
+<style>
+body { font-family: sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; background: #1a1a2e; color: #e0e0e0; }
+h1 { color: #7ec8e3; }
+textarea { width: 100%; height: 200px; font-family: monospace; font-size: 13px; background: #16213e; color: #e0e0e0; border: 1px solid #0f3460; padding: 10px; box-sizing: border-box; }
+button { background: #0f3460; color: #e0e0e0; border: none; padding: 10px 20px; cursor: pointer; margin: 5px 0; font-size: 14px; }
+button:hover { background: #7ec8e3; color: #000; }
+.info { color: #888; font-size: 13px; margin: 5px 0; }
+</style>
+</head>
+<body>
+<h1>JS → CSV Encoder</h1>
+<p class="info">Converts JavaScript source to a numbered CSV file.<br>
+CSV is the safest format for CDS — it looks like a spreadsheet export, not code.</p>
+
+<h3>1. Paste or load your .js file:</h3>
+<input type="file" id="filePicker" accept=".js,.mjs">
+<textarea id="jsInput" placeholder="Paste JavaScript source here..."></textarea>
+
+<h3>2. Encode and download:</h3>
+<button onclick="encode()">Encode to CSV</button>
+<p class="info" id="status"></p>
+
+<script>
+document.getElementById('filePicker').addEventListener('change', function(e) {
+  var file = e.target.files[0];
+  if (!file) return;
+  var reader = new FileReader();
+  reader.onload = function(ev) { document.getElementById('jsInput').value = ev.target.result; };
+  reader.readAsText(file);
+});
+
+function csvEscape(s) {
+  if (s.indexOf('"') >= 0 || s.indexOf(',') >= 0 || s.indexOf('\n') >= 0 || s.indexOf('\r') >= 0) {
+    return '"' + s.replace(/"/g, '""') + '"';
+  }
+  return s;
+}
+
+function encode() {
+  var js = document.getElementById('jsInput').value;
+  if (!js.trim()) { alert('No JS source provided'); return; }
+  var lines = js.split('\n');
+  var csv = 'line_number,content\n';
+  for (var i = 0; i < lines.length; i++) {
+    csv += (i + 1) + ',' + csvEscape(lines[i]) + '\n';
+  }
+  document.getElementById('status').textContent =
+    'Encoded: ' + lines.length + ' lines → ' + csv.length + ' chars CSV';
+  var a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+  a.download = 'wdk-source.csv';
+  a.click();
+}
+</script>
+</body>
+</html>

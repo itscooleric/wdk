@@ -1,0 +1,13 @@
+{
+  "dependencies": {
+    "fflate": "^0.8.2",
+    "fzstd": "^0.1.1",
+    "hyparquet": "^1.25.6",
+    "hyparquet-compressors": "^1.1.1",
+    "snappyjs": "^0.7.0",
+    "terser": "^5.46.2"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.0"
+  }
+}

@@ -1,0 +1,51 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "WDK Launcher sites.json",
+  "type": "object",
+  "required": ["version", "sites"],
+  "properties": {
+    "version": { "const": "1" },
+    "outbox": {
+      "type": "string",
+      "description": "Directory the launcher will create/watch for downloaded files."
+    },
+    "transfer": {
+      "type": "object",
+      "description": "Transfer pipeline invoked after files land in outbox.",
+      "properties": {
+        "method": { "type": "string", "enum": ["sftp", "sharepoint", "portal", "manual"] },
+        "destination": { "type": "string" },
+        "key": { "type": "string", "description": "Path to SSH private key (sftp method only)." },
+        "after_drop": {
+          "type": "string",
+          "description": "Shell command run by the folder watcher whenever a new file appears."
+        }
+      },
+      "required": ["method"]
+    },
+    "sites": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "url", "method"],
+        "properties": {
+          "name": { "type": "string" },
+          "url": { "type": "string", "format": "uri" },
+          "description": { "type": "string" },
+          "method": {
+            "type": "string",
+            "enum": [
+              "bookmarklet",
+              "wdk-bookmarklet",
+              "devtools-recorder",
+              "manual"
+            ]
+          },
+          "bookmarklet_file": { "type": "string" },
+          "recorder_file": { "type": "string" },
+          "filename_hint": { "type": "string" }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,54 @@
+Lane D — Launcher flow
+=======================
+
+  +-------------------+       +-------------------+       +-------------------+
+  | sites.json        |       | wdk-launcher.bat  |       | wdk-launcher.py   |
+  |                   |  -->  |   (Windows)       |  --   | (Python 3.8+)     |
+  | { version: 1,     |       |                   |   |   |                   |
+  |   outbox: ...,    |       | parses sites.json |   +-->| same parse + UI  |
+  |   transfer: {..}, |       |  -> opens chrome  |       | + watcher mode    |
+  |   sites: [...]    |       |  -> prints check- |       |                   |
+  | }                 |       |     list          |       +---------+---------+
+  +-------------------+       |  -> python --watch|                 |
+                              |     (optional)    |                 |
+                              +---------+---------+                 |
+                                        |                           |
+                                        v                           |
+                              +-------------------+                 |
+                              | Chrome opens N    |                 |
+                              | tabs, one per     |                 |
+                              | site URL          |                 |
+                              +-------------------+                 |
+                                                                    |
+                                                                    | --watch
+                                                                    v
+                                                          +-------------------+
+                                                          | OutboxWatcher     |
+                                                          | (poll loop)       |
+                                                          |                   |
+                                                          |  - mtime per file |
+                                                          |  - fires          |
+                                                          |    transfer.      |
+                                                          |    after_drop     |
+                                                          |    on new file    |
+                                                          +---------+---------+
+                                                                    |
+                                                                    v
+                                                          +-------------------+
+                                                          | Transfer pipeline |
+                                                          | (Lane C):         |
+                                                          | SFTP / SharePoint |
+                                                          | / portal upload   |
+                                                          +-------------------+
+
+  User flow:
+    1. cd launcher && wdk-launcher.bat            (or python wdk-launcher.py)
+    2. Chrome opens with all sites
+    3. For each site, follow the printed step:
+         - DevTools Recorder (Replay tab)        -> downloads to ~/Downloads
+         - Bookmarklet (paste in address bar)    -> downloads to ~/Downloads
+         - WDK Automator panel                   -> drops via WDK panel
+         - Manual                                -> operator does the work
+    4. Move/save downloads to outbox/
+    5. Watcher fires transfer pipeline
+    6. Files arrive at destination

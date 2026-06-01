@@ -1,0 +1,138 @@
+{
+  "version": "1.0",
+  "description": "Shared PII detection patterns — consumed by both JS (browser) and PowerShell scanners",
+  "patterns": [
+    {
+      "name": "US_SSN",
+      "entity_type": "SSN",
+      "severity": "HIGH",
+      "regex": "\\b(?!000|666|9\\d{2})([0-8]\\d{2}|7[0-6]\\d)[-\\s]?(?!00)\\d{2}[-\\s]?(?!0000)\\d{4}\\b",
+      "score": 0.85,
+      "context_words": ["ssn", "social security", "social sec", "soc sec"],
+      "context_score_boost": 0.10,
+      "validation": "ssn_area_check",
+      "description": "US Social Security Number (XXX-XX-XXXX)"
+    },
+    {
+      "name": "CREDIT_CARD_VISA",
+      "entity_type": "CREDIT_CARD",
+      "severity": "HIGH",
+      "regex": "\\b4\\d{3}[-\\s]?\\d{4}[-\\s]?\\d{4}[-\\s]?\\d{4}\\b",
+      "score": 0.70,
+      "context_words": ["visa", "card", "credit", "payment", "cc"],
+      "context_score_boost": 0.15,
+      "validation": "luhn",
+      "description": "Visa credit card number"
+    },
+    {
+      "name": "CREDIT_CARD_MC",
+      "entity_type": "CREDIT_CARD",
+      "severity": "HIGH",
+      "regex": "\\b5[1-5]\\d{2}[-\\s]?\\d{4}[-\\s]?\\d{4}[-\\s]?\\d{4}\\b",
+      "score": 0.70,
+      "context_words": ["mastercard", "card", "credit", "payment", "cc"],
+      "context_score_boost": 0.15,
+      "validation": "luhn",
+      "description": "Mastercard credit card number"
+    },
+    {
+      "name": "CREDIT_CARD_AMEX",
+      "entity_type": "CREDIT_CARD",
+      "severity": "HIGH",
+      "regex": "\\b3[47]\\d{2}[-\\s]?\\d{6}[-\\s]?\\d{5}\\b",
+      "score": 0.70,
+      "context_words": ["amex", "american express", "card", "credit"],
+      "context_score_boost": 0.15,
+      "validation": "luhn",
+      "description": "American Express credit card number"
+    },
+    {
+      "name": "EMAIL",
+      "entity_type": "EMAIL",
+      "severity": "MEDIUM",
+      "regex": "\\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}\\b",
+      "score": 0.90,
+      "context_words": ["email", "e-mail", "mailto"],
+      "context_score_boost": 0.05,
+      "validation": null,
+      "description": "Email address"
+    },
+    {
+      "name": "US_PHONE",
+      "entity_type": "PHONE",
+      "severity": "LOW",
+      "regex": "\\b(?:\\+?1[-\\s.]?)?\\(?\\d{3}\\)?[-\\s.]?\\d{3}[-\\s.]?\\d{4}\\b",
+      "score": 0.50,
+      "context_words": ["phone", "tel", "cell", "mobile", "fax", "call"],
+      "context_score_boost": 0.20,
+      "validation": null,
+      "description": "US phone number"
+    },
+    {
+      "name": "DATE_OF_BIRTH",
+      "entity_type": "DOB",
+      "severity": "MEDIUM",
+      "regex": "\\b(?:0[1-9]|1[0-2])[-/](?:0[1-9]|[12]\\d|3[01])[-/](?:19|20)\\d{2}\\b",
+      "score": 0.40,
+      "context_words": ["dob", "date of birth", "birthday", "born", "birth date", "birthdate"],
+      "context_score_boost": 0.30,
+      "validation": null,
+      "description": "Date of birth (MM/DD/YYYY)"
+    },
+    {
+      "name": "IPV4_ADDRESS",
+      "entity_type": "IP_ADDRESS",
+      "severity": "LOW",
+      "regex": "\\b(?:(?:25[0-5]|2[0-4]\\d|[01]?\\d\\d?)\\.){3}(?:25[0-5]|2[0-4]\\d|[01]?\\d\\d?)\\b",
+      "score": 0.30,
+      "context_words": ["ip", "address", "server", "host"],
+      "context_score_boost": 0.20,
+      "validation": null,
+      "description": "IPv4 address"
+    },
+    {
+      "name": "CUI_MARKING",
+      "entity_type": "CLASSIFICATION",
+      "severity": "HIGH",
+      "regex": "\\b(?:CUI(?:\\/\\/[A-Z0-9-]+)?|CONTROLLED\\s+UNCLASSIFIED|FOUO|FOR\\s+OFFICIAL\\s+USE\\s+ONLY)\\b",
+      "score": 0.95,
+      "context_words": [],
+      "context_score_boost": 0,
+      "validation": null,
+      "description": "CUI / FOUO marking (per NARA CUI registry)"
+    },
+    {
+      "name": "CLASSIFICATION_MARKING",
+      "entity_type": "CLASSIFICATION",
+      "severity": "CRITICAL",
+      "regex": "\\b(?:TOP\\s+SECRET|(?<!UN)SECRET|CONFIDENTIAL|UNCLASSIFIED(?:\\/\\/FOUO)?|NOFORN|ORCON|REL\\s+TO)\\b",
+      "score": 0.90,
+      "context_words": [],
+      "context_score_boost": 0,
+      "validation": null,
+      "description": "Classification marking (per DoDI 5200.48)"
+    },
+    {
+      "name": "PORTION_MARKING",
+      "entity_type": "CLASSIFICATION",
+      "severity": "HIGH",
+      "regex": "\\((?:U|C|S|TS|CUI|U\\/\\/FOUO)\\)",
+      "score": 0.85,
+      "context_words": [],
+      "context_score_boost": 0,
+      "validation": null,
+      "description": "Portion marking (U), (S), (TS), (CUI)"
+    },
+    {
+      "name": "ITAR_WARNING",
+      "entity_type": "EXPORT_CONTROL",
+      "severity": "CRITICAL",
+      "regex": "\\b(?:ITAR|International\\s+Traffic\\s+in\\s+Arms|EAR|Export\\s+Administration\\s+Regulations|USML)\\b",
+      "score": 0.80,
+      "context_words": ["export", "controlled", "restricted", "munitions"],
+      "context_score_boost": 0.10,
+      "validation": null,
+      "description": "ITAR/EAR export control reference"
+    }
+  ]
+}

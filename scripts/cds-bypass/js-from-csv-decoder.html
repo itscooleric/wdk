@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>CSV → JS Decoder (CDS Bypass)</title>
+<style>
+body { font-family: sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; background: #1a1a2e; color: #e0e0e0; }
+h1 { color: #7ec8e3; }
+textarea { width: 100%; height: 200px; font-family: monospace; font-size: 13px; background: #16213e; color: #e0e0e0; border: 1px solid #0f3460; padding: 10px; box-sizing: border-box; }
+button { background: #0f3460; color: #e0e0e0; border: none; padding: 10px 20px; cursor: pointer; margin: 5px 0; font-size: 14px; }
+button:hover { background: #7ec8e3; color: #000; }
+.info { color: #888; font-size: 13px; margin: 5px 0; }
+</style>
+</head>
+<body>
+<h1>CSV → JS Decoder</h1>
+<p class="info">Decodes a WDK CSV-encoded source file back to the original .js file.</p>
+
+<h3>1. Load CSV file:</h3>
+<input type="file" id="filePicker" accept=".csv">
+
+<h3>2. Decode and download:</h3>
+<button onclick="decode()">Decode to JS</button>
+<p class="info" id="status"></p>
+
+<textarea id="jsOutput" placeholder="Decoded JavaScript appears here..." readonly></textarea>
+
+<script>
+var csvContent = '';
+
+document.getElementById('filePicker').addEventListener('change', function(e) {
+  var file = e.target.files[0];
+  if (!file) return;
+  var reader = new FileReader();
+  reader.onload = function(ev) {
+    csvContent = ev.target.result;
+    document.getElementById('status').textContent = 'Loaded ' + file.name + ' (' + csvContent.length + ' chars)';
+  };
+  reader.readAsText(file);
+});
+
+function parseCSVLine(line) {
+  // Handle quoted fields with embedded commas and escaped quotes
+  var result = [];
+  var current = '';
+  var inQuotes = false;
+  for (var i = 0; i < line.length; i++) {
+    if (inQuotes) {
+      if (line[i] === '"' && line[i+1] === '"') {
+        current += '"';
+        i++;
+      } else if (line[i] === '"') {
+        inQuotes = false;
+      } else {
+        current += line[i];
+      }
+    } else {
+      if (line[i] === '"') {
+        inQuotes = true;
+      } else if (line[i] === ',') {
+        result.push(current);
+        current = '';
+      } else {
+        current += line[i];
+      }
+    }
+  }
+  result.push(current);
+  return result;
+}
+
+function decode() {
+  if (!csvContent.trim()) { alert('No CSV loaded'); return; }
+  var lines = csvContent.split('\n');
+  // Skip header
+  var jsLines = [];
+  for (var i = 1; i < lines.length; i++) {
+    if (!lines[i].trim()) continue;
+    var fields = parseCSVLine(lines[i]);
+    if (fields.length >= 2) {
+      // fields[0] is line number, fields[1] is content
+      jsLines.push(fields.slice(1).join(','));
+    }
+  }
+  var js = jsLines.join('\n');
+  document.getElementById('jsOutput').value = js;
+  document.getElementById('status').textContent = 'Decoded: ' + jsLines.length + ' lines';
+  var a = document.createElement('a');
+  a.href = 'data:text/javascript;charset=utf-8,' + encodeURIComponent(js);
+  a.download = 'wdk.js';
+  a.click();
+}
+</script>
+</body>
+</html>

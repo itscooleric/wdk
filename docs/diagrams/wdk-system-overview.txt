@@ -1,0 +1,52 @@
+WDK System Overview — four lanes
+=================================
+
+      +----------------------------------------------------------+
+      |                       USER MACHINE                       |
+      |                  (restricted environment)                |
+      +----------------------------------------------------------+
+                                  |
+            +---------------------+----------------------+
+            |                                            |
+            v                                            v
+  +-------------------+                   +-----------------------+
+  |  Lane D Launcher  |  -- opens -->     |  Browser (Chrome)     |
+  |                   |                   |                       |
+  |  - sites.json     |                   |  +------ Tab 1 ------+|
+  |  - opens N tabs   |                   |  | DevTools          ||
+  |  - prints per-    |                   |  |  Recorder JSON    ||
+  |    site checklist |                   |  +-------------------+|
+  |  - watches outbox |                   |  +------ Tab 2 ------+|
+  +---------+---------+                   |  | WDK bookmarklet   ||
+            |                             |  |  - Automator tab  ||
+            v                             |  |  - Network tab    ||
+  +-------------------+                   |  +-------------------+|
+  | outbox/ folder    | <--- file drop -- |  +------ Tab 3 ------+|
+  |  on local disk    |                   |  | Auth'd one-line   ||
+  +---------+---------+                   |  |  fetch bookmarklet||
+            |                             |  +-------------------+|
+            | after_drop                  +-----------------------+
+            v                                            ^
+  +-------------------+                                  |
+  |  Lane C Transfer  |                                  |
+  |                   |              Lane A Automator    |
+  |  - SFTP (Python   |              Lane B Network      |
+  |    or PowerShell  |                  - capture XHR   |
+  |    OpenSSH)       |                  - filter, find  |
+  |  - SharePoint     |                    initiator     |
+  |    network drive  |                  - copy as       |
+  |  - Web portal     |                    bookmarklet   |
+  +---------+---------+                  - re-run + edit |
+            |                                            |
+            v                                            |
+  +-------------------+                                  |
+  | Destination       |                                  |
+  | (SFTP server,     |                                  |
+  |  SharePoint, etc) |                                  |
+  +-------------------+                                  |
+                                                         |
+  Lane keys:                                             |
+    Lane A — WDK Automator (record / replay)             |
+    Lane B — Network Replay (capture, copy as bookmarklet)
+    Lane C — Transfer Pipeline (SFTP, SharePoint, portal)
+    Lane D — Launcher (sites.json + multi-tab + watcher)

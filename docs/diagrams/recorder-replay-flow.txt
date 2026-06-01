@@ -1,0 +1,50 @@
+Lane A — Recorder/Replay flow
+==============================
+
+  +----------------+      record       +-----------------+
+  |  Site with     | ---------------> |  Chrome DevTools |
+  |  DevTools      |                  |  Recorder        |
+  |  Recorder      |  (clicks, types, |                  |
+  |                |   navigations)   |  - selectors     |
+  |                |                  |  - assertions    |
+  |                |                  |                  |
+  |  OR            |                  |  Export ----+    |
+  |                |                  |             |    |
+  |  Site WITHOUT  |                  +-------------+----+
+  |  DevTools      |                                |
+  +-------+--------+                                | recorder.json
+          |                                         v
+          | ev. handlers                +---------------------+
+          | (click/input/                |  WDK Automator     |
+          |  submit/nav)                 |  panel             |
+          v                              |                    |
+  +----------------+   actions[]   <---  |  Import Recorder   |
+  |  WDK Robo      | --------+          |  JSON              |
+  |  recorder      |         |          |                    |
+  |  (in-page)     |         |          |  --- OR ---        |
+  +----------------+         |          |                    |
+                             |          |  Record (in-page)  |
+                             +--------> |  via window.DK     |
+                                        +---------+----------+
+                                                  |
+                                                  | actions[]
+                                                  v
+                                        +---------------------+
+                                        |  Replay engine      |
+                                        |                     |
+                                        |  - waitForSelector  |
+                                        |  - synthetic events |
+                                        |    (click/type/...) |
+                                        |  - scrollIntoView   |
+                                        |  - text-search      |
+                                        |    sentinel         |
+                                        |  - continueOnError  |
+                                        |  - stop/abort       |
+                                        +---------+-----------+
+                                                  |
+                                                  v
+                                        +---------------------+
+                                        |  Site replays user  |
+                                        |  flow; data lands   |
+                                        |  in default DL dir  |
+                                        +---------------------+

@@ -1,0 +1,58 @@
+# SPFx Build Container for Wiz
+# Produces a .sppkg ready for SharePoint App Catalog deployment.
+# No npm installs needed on the host — everything runs in the container.
+#
+# Usage:
+#   docker build -f docker/Dockerfile.spfx -t wiz-spfx-builder .
+#   docker run --rm -v $(pwd)/dist:/out wiz-spfx-builder
+#
+# Output: /out/wiz.sppkg
+
+FROM node:18-slim
+
+# SPFx build toolchain
+RUN npm install -g yo @microsoft/generator-sharepoint gulp-cli --loglevel=warn
+
+# Working directory
+WORKDIR /build
+
+# Scaffold SPFx project (no-framework, skip install for now)
+RUN yo @microsoft/sharepoint \
+    --solution-name wiz-webpart \
+    --component-type webpart \
+    --component-name Wiz \
+    --component-description "Wiz — portable data engineering toolkit" \
+    --framework none \
+    --skip-install \
+    --no-insight \
+    2>/dev/null || true
+
+WORKDIR /build/wiz-webpart
+
+# Install dependencies
+RUN npm install --loglevel=warn 2>/dev/null || true
+
+# Configure for bundled assets (air-gapped deployment)
+# Set includeClientSideAssets to true so .sppkg contains everything
+RUN if [ -f config/package-solution.json ]; then \
+    node -e " \
+      var f = require('./config/package-solution.json'); \
+      f.solution.includeClientSideAssets = true; \
+      f.solution.skipFeatureDeployment = true; \
+      require('fs').writeFileSync('./config/package-solution.json', JSON.stringify(f, null, 2));" \
+    ; fi
+
+# Copy build script that injects wiz.js into the web part
+COPY docker/spfx-inject.js /build/spfx-inject.js
+
+# Copy the dist output
+COPY dist/wiz.js /build/wiz.js
+
+# Build script: inject wiz.js into the web part render() method, then bundle
+CMD node /build/spfx-inject.js && \
+    cd /build/wiz-webpart && \
+    npx gulp bundle --ship 2>/dev/null && \
+    npx gulp package-solution --ship 2>/dev/null && \
+    cp sharepoint/solution/*.sppkg /out/wiz.sppkg 2>/dev/null && \
+    echo "Built: /out/wiz.sppkg" || \
+    echo "Build failed — check SPFx generator compatibility"

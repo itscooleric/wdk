@@ -1,0 +1,14 @@
+{
+  "title": "Ops dashboard export",
+  "steps": [
+    { "type": "navigate", "url": "https://ops.example.com/login" },
+    { "type": "click",  "selectors": [["#email"]] },
+    { "type": "change", "selectors": [["#email"]],    "value": "operator@example.com" },
+    { "type": "click",  "selectors": [["#password"]] },
+    { "type": "change", "selectors": [["#password"]], "value": "REDACTED" },
+    { "type": "click",  "selectors": [["button[type=submit]"]] },
+    { "type": "waitForElement", "selectors": [[".dashboard"]] },
+    { "type": "click",  "selectors": [["a[href='/exports']"]] },
+    { "type": "click",  "selectors": [["#export-csv"]] }
+  ]
+}
